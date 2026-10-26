@@ -35,3 +35,6 @@ Salicylic 8, Vit C + Collagen 155, Retinol 27, Sunscreen 30gr 350, Sunscreen 60g
 ## Catatan Windows
 - Pengguna memakai Windows; launcher `.bat` harus CRLF. Hindari folder OneDrive (npm install bisa gagal).
 - Setelah ubah kode: `npm run build` lalu `npm start` (atau `UPDATE_BUILD_ULANG.bat`).
+- Tes logika inti: `npm test` (`tests/pcsan.test.mjs`, node:test bawaan Node 24 — tanpa paket tambahan). Wajib lulus setelah mengubah `lib/pcsan.ts`.
+  Di PowerShell yang memblokir skrip, pakai `npm.cmd test`.
+- Harga dari input pengguna/Excel dibaca dengan `parseHarga` (bukan `parseQty`): isian tidak terbaca → `undefined` → ditolak, harga lama dipertahankan.

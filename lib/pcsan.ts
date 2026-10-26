@@ -35,6 +35,16 @@ export function parseQty(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+/** Harga: "Rp 25.000" / "15.100,-" / 25000 -> angka. Kosong / "-" -> null (belum ada harga). Tidak terbaca -> undefined. */
+export function parseHarga(v: unknown): number | null | undefined {
+  if (v == null) return null;
+  if (typeof v === "number") return isFinite(v) && v >= 0 ? v : undefined;
+  const s = String(v).trim().replace(/^rp\.?/i, "").replace(/[.,]-$/, "").trim();
+  if (s === "" || s === "-") return null;
+  const n = parseQty(s);
+  return n == null || n < 0 ? undefined : n;
+}
+
 const isNamaHeader = (t: string) =>
   t === "NAMA" || t.startsWith("NAMA") || t.startsWith("ROW LABELS") || t === "LABEL BARIS";
 const isQtyHeader = (t: string) =>

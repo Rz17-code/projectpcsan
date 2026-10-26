@@ -35,12 +35,21 @@ export default function App() {
   const [data, setData] = useState<DataInput>({ input: [], totalFile: null, sumber: "", judul: "" });
   const [modal, setModal] = useState<ModalState>(null);
   const [toastMsg, setToastMsg] = useState("");
+  const [hargaDirty, setHargaDirty] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     try { setUser(localStorage.getItem("pcsan_user") || ""); } catch {}
     fetchMaster().then(setMaster).catch((e) => setErr(e.message || "Tidak bisa terhubung ke server PCSAN."));
   }, []);
+
+  // peringatan bila halaman ditutup / di-refresh saat Master Harga belum disimpan
+  useEffect(() => {
+    if (!hargaDirty) return;
+    const f = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", f);
+    return () => window.removeEventListener("beforeunload", f);
+  }, [hargaDirty]);
 
   const toast = useCallback((t: string) => {
     setToastMsg(t);
@@ -77,12 +86,13 @@ export default function App() {
       </header>
       <nav>
         {TABS.map(([k, l]) => (
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}{k === "harga" && hargaDirty ? " *" : ""}</button>
         ))}
       </nav>
       <main>
         {tab === "hitung" && <Hitung ctx={ctx} data={data} setData={setData} />}
-        {tab === "harga" && <MasterHarga ctx={ctx} />}
+        {/* tetap terpasang walau tab lain dibuka, supaya editan yang belum disimpan tidak hilang */}
+        <div className={tab === "harga" ? "" : "hide"}><MasterHarga ctx={ctx} onDirty={setHargaDirty} /></div>
         {tab === "mapping" && <MappingTab ctx={ctx} />}
         {tab === "riwayat" && (
           <Riwayat ctx={ctx} onBuka={(d) => { setData(d); setTab("hitung"); toast("Dihitung ulang dengan master harga & mapping saat ini"); }} />

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
-    "start": "node scripts/info.js && next start -H 0.0.0.0 -p 3000"
+    "start": "node scripts/info.js && next start -H 0.0.0.0 -p 3000",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.mjs"
   },
   "dependencies": {
     "next": "15.5.28",

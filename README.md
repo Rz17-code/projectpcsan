@@ -77,6 +77,7 @@ Folder `data/`, `node_modules/`, dan `.next/` tidak ikut ter-upload karena sudah
 ## 5. Struktur kode
 
 ```
+tests/              tes logika hitung, jalankan dengan: npm test
 lib/pcsan.ts        logika inti (parsing Nama|qty, pecah bundling, hitung, saran mapping)
 lib/storage.ts      penyimpanan data (adapter file; tempat adapter database nanti)
 lib/excel.ts        baca/tulis Excel di browser
