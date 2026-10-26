@@ -1,0 +1,400 @@
+{
+ "versi": 1,
+ "produk": [
+  {
+   "nama": "DR FAY CREAM",
+   "harga": 15100,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "DR FAY FACIAL FOAM",
+   "harga": 16000,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "DR FAY SERUM",
+   "harga": 15300,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "FLO HAIR TONIC",
+   "harga": 15100,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "FLO HAIR SHAMPOO",
+   "harga": 16200,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "FLO HAIR SERUM",
+   "harga": 15100,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "VIVIDENT",
+   "harga": 15100,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "VITA TEETH WHITENING",
+   "harga": 15300,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "NEI",
+   "harga": 15600,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "GLOSSMEN",
+   "harga": 15300,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "SILA BRIGHTENING SERUM",
+   "harga": 15600,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "EWA",
+   "harga": 15300,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "FLORYN",
+   "harga": 15100,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "CLEVER",
+   "harga": 15300,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "CLAY",
+   "harga": 15600,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "CADEO",
+   "harga": 15100,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "BRIE",
+   "harga": 15300,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "REMOLE",
+   "harga": null,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "LOCARE BABY LOTION",
+   "harga": 30290,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "LOCARE HAIR BABY LOTION",
+   "harga": 23660,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "LOCARE CALMING OIL",
+   "harga": 21710,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "LOCARE HAIR & BODY WASH",
+   "harga": 25090,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "FILLENT BABY",
+   "harga": 13986,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "QUZI BLACK",
+   "harga": null,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "QUZI WHITE",
+   "harga": null,
+   "grup": "BEAUTYHACKS & LAINNYA"
+  },
+  {
+   "nama": "KYURA ACNE CREAM",
+   "harga": 28600,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA ACNE SERUM",
+   "harga": 22200,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA ACNE TONER",
+   "harga": 22600,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA ACNE SPOT",
+   "harga": 23600,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BARRIER CREAM",
+   "harga": 27800,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BARRIER SERUM",
+   "harga": 21000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BARRIER TONER",
+   "harga": 20000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA ACNE CARE GENTLE FACIAL WASH",
+   "harga": 24000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BRIGHTENING CREAM",
+   "harga": 23000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BRIGHTENING SERUM",
+   "harga": 21500,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BRIGHTENING DARK SPOT CREAM",
+   "harga": 26000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA BRIGHTENING DARK SPOT SERUM",
+   "harga": 20600,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA REJUVENATE WRINKLES CREAM",
+   "harga": 21000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "KYURA REJUVENATE WRINKLES SERUM",
+   "harga": 22000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB 7 Active Ingredients",
+   "harga": 15100,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB AHA BHA PHA",
+   "harga": 15300,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB Alpha Arbutin 2%",
+   "harga": 16200,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB Niacinamide 10%",
+   "harga": 15100,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB Salicylic Acid 2%",
+   "harga": 15100,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB Vitamin C + Collagen",
+   "harga": 15100,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB Retinol 1%",
+   "harga": 16000,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "GB Sunscreen 30gr",
+   "harga": 22200,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "GB Sunscreen 60gr",
+   "harga": 25600,
+   "grup": "KYURA & GLOW BOOSTER"
+  },
+  {
+   "nama": "Serum GB PDRN",
+   "harga": 16650,
+   "grup": "KYURA & GLOW BOOSTER"
+  }
+ ],
+ "mapping": [
+  {
+   "nama": "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN",
+   "komponen": [
+    {
+     "produk": "Serum GB Niacinamide 10%",
+     "qty": 1
+    },
+    {
+     "produk": "Serum GB Alpha Arbutin 2%",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN + Vit C Collagen",
+   "komponen": [
+    {
+     "produk": "Serum GB Niacinamide 10%",
+     "qty": 1
+    },
+    {
+     "produk": "Serum GB Alpha Arbutin 2%",
+     "qty": 1
+    },
+    {
+     "produk": "Serum GB Vitamin C + Collagen",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "BUNDLING SERUM GB RETINOL + VIT C COLLAGEN",
+   "komponen": [
+    {
+     "produk": "Serum GB Retinol 1%",
+     "qty": 1
+    },
+    {
+     "produk": "Serum GB Vitamin C + Collagen",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "BUNDLING SERUM GLOW BOOSTER 2 PCS",
+   "komponen": [
+    {
+     "produk": "Serum GB 7 Active Ingredients",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "nama": "BUNDLING SERUM GLOW BOOSTER 3 PCS",
+   "komponen": [
+    {
+     "produk": "Serum GB 7 Active Ingredients",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "nama": "GLOWBOOSTER SUNSCREEN 30 ML",
+   "komponen": [
+    {
+     "produk": "GB Sunscreen 30gr",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "GLOWBOOSTER SUNSCREEN 60 ML",
+   "komponen": [
+    {
+     "produk": "GB Sunscreen 60gr",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "NIACINAMIDE 10% + PDRN",
+   "komponen": [
+    {
+     "produk": "Serum GB Niacinamide 10%",
+     "qty": 1
+    },
+    {
+     "produk": "Serum GB PDRN",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "PDRN",
+   "komponen": [
+    {
+     "produk": "Serum GB PDRN",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "Serum Glow Booster",
+   "komponen": [
+    {
+     "produk": "Serum GB 7 Active Ingredients",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "KYURA BARRIER KIT",
+   "komponen": [
+    {
+     "produk": "KYURA BARRIER SERUM",
+     "qty": 1
+    },
+    {
+     "produk": "KYURA BARRIER CREAM",
+     "qty": 1
+    },
+    {
+     "produk": "KYURA BARRIER TONER",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "nama": "KYURA ACNE KIT",
+   "komponen": [
+    {
+     "produk": "KYURA ACNE SERUM",
+     "qty": 1
+    },
+    {
+     "produk": "KYURA ACNE CREAM",
+     "qty": 1
+    },
+    {
+     "produk": "KYURA ACNE TONER",
+     "qty": 1
+    },
+    {
+     "produk": "KYURA ACNE SPOT",
+     "qty": 1
+    }
+   ]
+  }
+ ]
+}
