@@ -36,7 +36,7 @@ Bundling dipecah otomatis sesuai Mapping Bundling.
 | **Download Excel** | Berisi 3 sheet: HASIL PCSAN, RINCIAN BUNDLING, INPUT. |
 | **Master Harga** | Ubah harga, tambah produk, atau import dari Excel dengan format `NAMA PRODUK` dan `HARGA JUAL (INC PPN)`. Klik **Simpan**. |
 | **Mapping Bundling** | Daftar nama barang beserta produk dan jumlah pcs per 1 qty. |
-| **Riwayat** | Hasil yang disimpan bisa dibuka semua pengguna. |
+| **Riwayat** | Setiap input (Excel, paste, screenshot) **otomatis tersimpan**, lengkap dengan nama penginput (isi **Nama Anda** di kanan atas) dan waktunya. Mengubah keterangan, memetakan nama, atau koreksi screenshot memperbarui entri yang sama. Bisa dibuka semua pengguna. |
 
 **Aturan hitung:** setiap komponen bundling mendapat *qty bundling × jumlah pcs komponen*.
 Contoh: `BUNDLING NIACINAMIDE + ALPHA ARBUTIN` dengan qty 1.821 menjadi Niacinamide 1.821 dan Alpha Arbutin 1.821.

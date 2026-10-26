@@ -8,7 +8,14 @@ import MappingTab from "./MappingTab";
 import Riwayat from "./Riwayat";
 import MappingModal from "./MappingModal";
 
-export type DataInput = { input: InputRow[]; totalFile: number | null; sumber: string; judul: string };
+export type DataInput = {
+  input: InputRow[]; totalFile: number | null; sumber: string; judul: string;
+  /** true = input baru dari pengguna -> disimpan otomatis ke Riwayat (false/kosong = dibuka dari Riwayat) */
+  otomatis?: boolean;
+  /** penanda 1 kali input; selama sama, simpan otomatis memperbarui entri Riwayat yang sama */
+  sesi?: string;
+  riwayatId?: string | null;
+};
 export type ModalState = { idx: number | null; nama: string } | null;
 
 export type Ctx = {

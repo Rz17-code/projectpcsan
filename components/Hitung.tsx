@@ -2,11 +2,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { fmt, hitung, pasteToRows, rapikanTeksOcr, resolve, rowsToInput } from "@/lib/pcsan";
 import { downloadXlsx, readWorkbook, sheetRows, type Workbook } from "@/lib/excel";
-import { addRiwayat } from "@/lib/api";
+import { simpanRiwayat } from "@/lib/api";
 import { bacaScreenshot } from "@/lib/ocr";
 import type { Ctx, DataInput } from "./App";
 
-export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInput; setData: (d: DataInput) => void }) {
+const sesiBaru = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInput; setData: React.Dispatch<React.SetStateAction<DataInput>> }) {
   const { master } = ctx;
   const [wb, setWb] = useState<{ wb: Workbook; file: string } | null>(null);
   const [sheet, setSheet] = useState("");
@@ -37,11 +39,50 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     [master, data],
   );
 
-  function pakai(rows: unknown[][], sumber: string, judul?: string) {
+  // ---- simpan otomatis ke Riwayat: 1 input = 1 entri; perubahan berikutnya (keterangan, mapping, koreksi
+  // screenshot, nama) memperbarui entri yang sama. Data yang dibuka dari Riwayat tidak disimpan ulang.
+  const [status, setStatus] = useState<"" | "menyimpan" | "tersimpan" | "gagal">("");
+  const [ulang, setUlang] = useState(0);
+  const antre = useRef<Promise<unknown>>(Promise.resolve());
+  const idSesi = useRef<{ sesi: string; id: string } | null>(null);
+  const terakhir = useRef("");
+
+  useEffect(() => setStatus(""), [data.sesi]);
+  useEffect(() => {
+    if (!H || !data.otomatis || !data.sesi) return;
+    const sesi = data.sesi;
+    const payload = { ...H, judul: data.judul || `Tanpa keterangan (${data.sumber})`, oleh: ctx.user };
+    const s = JSON.stringify(payload);
+    if (s === terakhir.current) return;
+    const t = setTimeout(() => {
+      antre.current = antre.current.then(async () => {
+        if (s === terakhir.current) return;
+        setStatus("menyimpan");
+        const id = await simpanRiwayat(data.riwayatId || (idSesi.current?.sesi === sesi ? idSesi.current.id : null), payload);
+        if (!id) { setStatus("gagal"); return; }
+        idSesi.current = { sesi, id };
+        terakhir.current = s;
+        setStatus("tersimpan");
+        setData((d) => (d.sesi === sesi && d.riwayatId !== id ? { ...d, riwayatId: id } : d));
+      });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [H, ctx.user, ulang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * lanjut = koreksi dari input yang sama (mis. Hitung ulang screenshot) -> perbarui entri Riwayat yang sama.
+   * Keterangan yang diketik sebelum ada data tetap dipakai; input baru setelah itu mulai dari judulAwal (mis. nama file).
+   */
+  function pakai(rows: unknown[][], sumber: string, judulAwal = "", lanjut = false) {
     const r = rowsToInput(rows);
     if (!r.out.length) { alert("Tidak ada data terbaca. Pastikan ada kolom Nama dan qty."); return; }
     setOpen({});
-    setData({ input: r.out, totalFile: r.total, sumber, judul: judul ?? data.judul });
+    const tetap = lanjut && data.otomatis && data.sesi;
+    const judul = tetap || !data.input.length ? data.judul || judulAwal : judulAwal;
+    setData({
+      input: r.out, totalFile: r.total, sumber, judul, otomatis: true,
+      sesi: tetap ? data.sesi : sesiBaru(), riwayatId: tetap ? data.riwayatId : null,
+    });
   }
   async function onScreenshot(f: Blob, nama: string) {
     if (ocr != null) return;
@@ -67,18 +108,7 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     const w = await readWorkbook(f);
     setWb({ wb: w, file: f.name });
     setSheet(w.SheetNames[0]);
-    pakai(sheetRows(w, w.SheetNames[0]), `${f.name} | ${w.SheetNames[0]}`, data.judul || f.name.replace(/\.[^.]+$/, ""));
-  }
-  async function simpan() {
-    if (!H) return;
-    let judul = data.judul;
-    if (!judul) {
-      judul = prompt("Beri keterangan (contoh: GB Shopee - Oktober 2026)") || "";
-      if (!judul) return;
-      setData({ ...data, judul });
-    }
-    const ok = await addRiwayat({ ...H, judul, oleh: ctx.user });
-    ok ? ctx.toast("Tersimpan di Riwayat") : alert("Gagal menyimpan");
+    pakai(sheetRows(w, w.SheetNames[0]), `${f.name} | ${w.SheetNames[0]}`, f.name.replace(/\.[^.]+$/, ""));
   }
 
   const tanpaHarga = H ? H.baris.filter((b) => b.pcs > 0 && b.harga == null) : [];
@@ -88,6 +118,9 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     <section>
       <div className="card">
         <h2>1. Masukkan data (format: Nama | qty)</h2>
+        {!ctx.user && (
+          <div className="msg warn">Setiap input otomatis tersimpan di Riwayat. Isi <b>Nama Anda</b> di kanan atas supaya tercatat siapa yang menginput.</div>
+        )}
         <div className="row" style={{ marginBottom: 10 }}>
           <input className="grow" type="text" placeholder="Keterangan, contoh: GB Shopee - Oktober 2026"
             value={data.judul} onChange={(e) => setData({ ...data, judul: e.target.value })} />
@@ -116,7 +149,7 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
         {wb && wb.wb.SheetNames.length > 1 && (
           <div className="row" style={{ marginTop: 8 }}>
             <span className="muted">Sheet:</span>
-            <select value={sheet} onChange={(e) => { setSheet(e.target.value); pakai(sheetRows(wb.wb, e.target.value), `${wb.file} | ${e.target.value}`); }}>
+            <select value={sheet} onChange={(e) => { setSheet(e.target.value); pakai(sheetRows(wb.wb, e.target.value), `${wb.file} | ${e.target.value}`, wb.file.replace(/\.[^.]+$/, "")); }}>
               {wb.wb.SheetNames.map((n) => <option key={n}>{n}</option>)}
             </select>
           </div>
@@ -144,7 +177,7 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
             </div>
           )}
           <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn p" onClick={() => { setWb(null); pakai(pasteToRows(paste), shot ? `screenshot | ${shot.nama} (dikoreksi)` : "paste"); }}>
+            <button className="btn p" onClick={() => { setWb(null); pakai(pasteToRows(paste), shot ? `screenshot | ${shot.nama} (dikoreksi)` : "paste", undefined, !!shot); }}>
               {shot ? "Hitung ulang" : "Hitung dari paste"}
             </button>
             <button className="btn" onClick={() => { setPaste(""); if (shot) URL.revokeObjectURL(shot.url); setShot(null); }}>Kosongkan</button>
@@ -198,7 +231,16 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
             <div className="row" style={{ marginBottom: 10 }}>
               <h2 style={{ margin: 0 }} className="grow">2. Hasil PCSAN per produk</h2>
               <label className="muted"><input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} /> sembunyikan produk qty 0</label>
-              <button className="btn" onClick={simpan}>Simpan ke Riwayat</button>
+              {data.otomatis ? (
+                <span className="muted" style={{ fontSize: 12 }} data-testid="status-riwayat">
+                  {status === "menyimpan" && "Menyimpan ke Riwayat..."}
+                  {status === "tersimpan" && <span style={{ color: "var(--ok)" }}>✔ Tersimpan otomatis di Riwayat</span>}
+                  {status === "gagal" && <><span style={{ color: "var(--bad)" }}>✖ Gagal menyimpan ke Riwayat</span>{" "}
+                    <button className="btn s" onClick={() => setUlang(ulang + 1)}>Coba lagi</button></>}
+                </span>
+              ) : (
+                <span className="muted" style={{ fontSize: 12 }}>Dibuka dari Riwayat (tidak disimpan ulang)</span>
+              )}
               <button className="btn p" data-testid="xlsx" onClick={() => downloadXlsx(H, master, ctx.user)}>Download Excel</button>
             </div>
             <p className="muted" style={{ margin: "0 0 8px", fontSize: 12 }}>Klik baris produk untuk melihat asal qty-nya (dari nama barang mana saja).</p>

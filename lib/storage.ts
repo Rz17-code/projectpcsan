@@ -18,8 +18,13 @@ export interface Storage {
   listRiwayat(): Promise<RiwayatRingkas[]>;
   getRiwayat(id: string): Promise<any | null>;
   addRiwayat(data: any): Promise<string>;
+  /** Perbarui riwayat yang sudah ada (tanggal dibuat dipertahankan). false = tidak ditemukan. */
+  updateRiwayat(id: string, data: any): Promise<boolean>;
   deleteRiwayat(id: string): Promise<void>;
 }
+
+const ringkasan = (d: any): RiwayatRingkas =>
+  ({ id: d.id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai });
 
 const now = () => {
   const d = new Date();
@@ -72,7 +77,7 @@ class FileStorage implements Storage {
       if (!f.endsWith(".json")) continue;
       try {
         const d = JSON.parse(await fs.readFile(path.join(this.riwayatDir, f), "utf8"));
-        out.push({ id: d.id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai });
+        out.push(ringkasan(d));
       } catch { /* abaikan file rusak */ }
     }
     return out.sort((a, b) => (b.dibuat || "").localeCompare(a.dibuat || ""));
@@ -88,6 +93,12 @@ class FileStorage implements Storage {
     const id = now().replace(/[-: ]/g, "") + "_" + crypto.randomBytes(3).toString("hex");
     await fs.writeFile(path.join(this.riwayatDir, id + ".json"), JSON.stringify({ ...data, id, dibuat: now() }), "utf8");
     return id;
+  }
+  async updateRiwayat(id: string, data: any) {
+    const lama = await this.getRiwayat(id);
+    if (!lama) return false;
+    await fs.writeFile(path.join(this.riwayatDir, lama.id + ".json"), JSON.stringify({ ...data, id: lama.id, dibuat: lama.dibuat, diubah: now() }), "utf8");
+    return true;
   }
   async deleteRiwayat(id: string) {
     const s = this.safeId(id); if (!s) return;
@@ -148,11 +159,18 @@ class RedisStorage implements Storage {
   }
   async addRiwayat(data: any) {
     const id = now().replace(/[-: ]/g, "") + "_" + crypto.randomBytes(3).toString("hex");
-    const d = { ...data, id, dibuat: now() };
-    const ringkas: RiwayatRingkas = { id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai };
-    await this.r.set(K.riwayat(id), JSON.stringify(d));
-    await this.r.hset(K.ringkas, { [id]: JSON.stringify(ringkas) });
+    await this.tulisRiwayat({ ...data, id, dibuat: now() });
     return id;
+  }
+  async updateRiwayat(id: string, data: any) {
+    const lama = await this.getRiwayat(id);
+    if (!lama) return false;
+    await this.tulisRiwayat({ ...data, id, dibuat: lama.dibuat, diubah: now() });
+    return true;
+  }
+  private async tulisRiwayat(d: any) {
+    await this.r.set(K.riwayat(d.id), JSON.stringify(d));
+    await this.r.hset(K.ringkas, { [d.id]: JSON.stringify(ringkasan(d)) });
   }
   async deleteRiwayat(id: string) {
     await this.r.hdel(K.ringkas, id);

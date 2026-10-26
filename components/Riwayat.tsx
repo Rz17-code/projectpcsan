@@ -30,7 +30,7 @@ export default function Riwayat({ ctx, onBuka }: { ctx: Ctx; onBuka: (d: DataInp
               {items?.length === 0 && <tr><td colSpan={6} className="muted">Belum ada riwayat.</td></tr>}
               {items?.map((x) => (
                 <tr key={x.id}>
-                  <td>{x.judul}</td><td>{x.dibuat}</td><td>{x.oleh}</td>
+                  <td>{x.judul}</td><td>{x.dibuat}</td><td>{x.oleh || <span className="muted">(tanpa nama)</span>}</td>
                   <td className="n">{fmt(x.total_pcs)}</td><td className="n">{fmt(x.total_nilai)}</td>
                   <td className="n">
                     <button className="btn s" onClick={async () => {

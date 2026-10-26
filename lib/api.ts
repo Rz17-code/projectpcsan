@@ -29,9 +29,17 @@ export async function getRiwayat(id: string) {
   const r = await fetch("/api/riwayat/" + id, { cache: "no-store" });
   return r.json();
 }
-export async function addRiwayat(data: unknown) {
-  const r = await fetch("/api/riwayat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-  return r.ok;
+/** Simpan riwayat: perbarui entri `id` bila ada, kalau tidak (atau sudah dihapus) buat baru. Hasil: id, atau null bila gagal. */
+export async function simpanRiwayat(id: string | null, data: unknown): Promise<string | null> {
+  const body = JSON.stringify(data);
+  const headers = { "Content-Type": "application/json" };
+  if (id) {
+    const r = await fetch("/api/riwayat/" + id, { method: "PUT", headers, body });
+    if (r.ok) return id;
+    if (r.status !== 404) return null;
+  }
+  const r = await fetch("/api/riwayat", { method: "POST", headers, body });
+  return r.ok ? (await r.json()).id : null;
 }
 export async function deleteRiwayat(id: string) {
   await fetch("/api/riwayat/" + id, { method: "DELETE" });
