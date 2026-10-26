@@ -16,6 +16,9 @@ Pengguna berkomunikasi dalam **Bahasa Indonesia**. Aplikasi Next.js 15 (App Rout
 - KYURA BARRIER KIT = Barrier Serum + Cream + Toner; KYURA ACNE KIT = Acne Serum + Cream + Toner + Spot.
 - REMOLE, QUZI BLACK, QUZI WHITE memang belum punya harga (kosong) — tampilkan peringatan, nilai = 0.
 - Nama barang yang tidak dikenal **tidak boleh ditebak**: tandai, jangan dihitung, minta pengguna memetakan.
+  **Pengecualian (diminta pengguna 2026-10-26):** nama yang DIAWALI nama produk/mapping yang ada (mis. "NEI Peeling Spray" → NEI)
+  dikenali otomatis (`cocokAwalan`), ikut dihitung, diberi label oranye "otomatis" + tombol Konfirmasi. TIDAK berlaku bila sisa
+  nama berisi tanda paket (+, &, PCS, KIT, SET, FREE, BONUS, BUNDLING, ISI, ...) atau angka lepas tanpa satuan — itu tetap manual.
 - Harga di master sudah **termasuk PPN**.
 
 ## Angka acuan untuk pengujian (data GB, input total 2.976)

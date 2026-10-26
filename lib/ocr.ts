@@ -14,7 +14,12 @@ async function siapkanGambar(file: Blob): Promise<HTMLCanvasElement> {
   const img = g.getImageData(0, 0, c.width, c.height);
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
-    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const [r, g, b] = [d[i], d[i + 1], d[i + 2]];
+    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+    // segitiga hijau Excel (tanda "angka disimpan sebagai teks") -> putih, supaya tidak terbaca sebagai huruf/angka;
+    // termasuk pinggirannya yang pudar (hijau muda & terang) agar tidak tersisa garis tipis
+    const hijau = (g > r + 40 && g > b + 40) || (g > r + 6 && g > b + 6 && luma > 150);
+    const y = hijau ? 255 : luma;
     d[i] = d[i + 1] = d[i + 2] = y;
   }
   g.putImageData(img, 0, 0);

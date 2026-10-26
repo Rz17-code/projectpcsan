@@ -7,7 +7,8 @@ export type Master = { versi: number; produk: Produk[]; mapping: Mapping[]; diub
 export type InputRow = { nama: string; qty: number };
 export type Asal = { nama: string; qty: number; x: number; pcs: number };
 export type BarisHasil = { nama: string; grup: string; harga: number | null; pcs: number; nilai: number; asal: Asal[] };
-export type Resolusi = { cara: "mapping" | "langsung"; komponen: Komponen[] } | null;
+/** cara "otomatis" = dikenali dari awalan nama (lihat cocokAwalan); `dari` = nama produk/mapping yang cocok */
+export type Resolusi = { cara: "mapping" | "langsung" | "otomatis"; komponen: Komponen[]; dari?: string } | null;
 export type Hasil = {
   judul: string;
   sumber: string;
@@ -91,6 +92,16 @@ export function pasteToRows(text: string): unknown[][] {
   });
 }
 
+/**
+ * Buang "sampah" OCR di ujung teks: 1 huruf kecil atau token berisi simbol saja (mis. segitiga hijau Excel
+ * terbaca "r", atau ' » ~). Huruf besar tunggal dipertahankan karena bisa bagian nama (mis. "Vitamin C").
+ */
+const buangSampahOcr = (s: string) => {
+  let t = s, sebelum;
+  do { sebelum = t; t = t.replace(/\s+(?:[a-z]|[^\p{L}\p{N}%+()\s]+)$/u, ""); } while (t !== sebelum);
+  return t;
+};
+
 /** Angka hasil OCR yang tertukar dengan huruf mirip: O/o→0, l/I→1 (hanya di token terakhir yang memang berisi angka). */
 const OCR_ANGKA: Record<string, string> = { O: "0", o: "0", l: "1", I: "1" };
 
@@ -103,12 +114,12 @@ export function rapikanTeksOcr(text: string): { teks: string; tanpaAngka: string
   const keluar: string[] = [];
   const tanpaAngka: string[] = [];
   for (const raw of text.split(/\r?\n/)) {
-    const l = raw.replace(/[|‖¦]+\s*$/, "").replace(/^\s*[|‖¦]+/, "").replace(/\s+/g, " ").trim();
+    const l = buangSampahOcr(raw.replace(/[|‖¦]+\s*$/, "").replace(/^\s*[|‖¦]+/, "").replace(/\s+/g, " ").trim());
     if (!l) continue;
     const m = l.match(/^(.*?)[\s|:;_—–]+([0-9OolI.,]*\d[0-9OolI.,]*)$/);
     if (m && /[A-Za-z]/.test(m[1])) {
       const qty = m[2].replace(/[OolI]/g, (c) => OCR_ANGKA[c]);
-      keluar.push(`${m[1].replace(/[\s.:_—–-]+$/, "")}\t${qty}`);
+      keluar.push(`${buangSampahOcr(m[1]).replace(/[\s.:_—–-]+$/, "")}\t${qty}`);
     } else {
       keluar.push(l);
       if (/[A-Za-z]{3}/.test(l)) tanpaAngka.push(l);
@@ -117,12 +128,45 @@ export function rapikanTeksOcr(text: string): { teks: string; tanpaAngka: string
   return { teks: keluar.join("\n"), tanpaAngka };
 }
 
+// Tanda bahwa sisa nama bisa berisi produk lain / jumlah lain -> jangan dikenali otomatis, harus dipetakan manual.
+const PENANDA_PAKET =
+  /[+&\/,]|\b(DAN|WITH|FREE|GRATIS|BONUS|HADIAH|PAKET|BUNDLING|BUNDLE|KIT|SET|BELI|ISI|COMBO|DUO|TRIO)\b|\d+\s*(PCS|PC|X|PACK|PAK|BOX|BTL|BOTOL)\b|\bX\s*\d/;
+
+// Angka lepas tanpa satuan (mis. "... 30 ML 4") bisa berarti jumlah/varian atau sisa salah baca OCR -> jangan ditebak.
+// Ukuran seperti "100ML", "100 ML", "15G", "2%" tetap boleh.
+const ANGKA_TANPA_SATUAN = /(^|\s)\d+([.,]\d+)?(?!\s*(ML|GR|GRAM|G|KG|L|LT|LTR|MG|CM|MM|%)\b)(?=\s|$)/;
+
+/**
+ * Kenali nama barang yang DIAWALI nama produk / mapping yang sudah ada, mis. "NEI Peeling Spray" -> NEI
+ * (atas permintaan pengguna, 2026-10-26). Hanya bila sisa namanya tidak mengandung PENANDA_PAKET, supaya
+ * "Serum GB Niacinamide 10% + RETINOL" atau "KYURA ACNE CREAM 2 PCS" tidak salah dihitung. Bila ada beberapa
+ * yang cocok, dipilih nama terpanjang.
+ */
+export function cocokAwalan(master: Master, nama: string): { dari: string; komponen: Komponen[] } | null {
+  const n = norm(nama);
+  const kandidat = [
+    ...master.mapping.map((m) => ({ nama: m.nama, komponen: m.komponen })),
+    ...master.produk.map((p) => ({ nama: p.nama, komponen: [{ produk: p.nama, qty: 1 }] })),
+  ];
+  let best: (typeof kandidat)[number] | null = null;
+  for (const c of kandidat) {
+    const k = norm(c.nama);
+    if (k.length < 3 || !n.startsWith(k + " ")) continue;
+    const sisa = n.slice(k.length);
+    if (PENANDA_PAKET.test(sisa) || ANGKA_TANPA_SATUAN.test(sisa)) continue;
+    if (!best || k.length > norm(best.nama).length) best = c;
+  }
+  return best ? { dari: best.nama, komponen: best.komponen } : null;
+}
+
 export function resolve(master: Master, nama: string): Resolusi {
   const k = norm(nama);
   const m = master.mapping.find((x) => norm(x.nama) === k);
   if (m) return { cara: "mapping", komponen: m.komponen };
   const p = master.produk.find((x) => norm(x.nama) === k);
   if (p) return { cara: "langsung", komponen: [{ produk: p.nama, qty: 1 }] };
+  const a = cocokAwalan(master, nama);
+  if (a) return { cara: "otomatis", komponen: a.komponen, dari: a.dari };
   return null;
 }
 
@@ -166,6 +210,8 @@ const STOP = new Set(["BUNDLING", "PAKET", "SERUM", "GB", "GLOW", "BOOSTER", "GL
 const toks = (s: string) => norm(s).replace(/[^A-Z0-9%+ ]/g, " ").split(/\s+/).filter(Boolean);
 
 export function saran(master: Master, nama: string): Komponen[] {
+  const a = cocokAwalan(master, nama);
+  if (a) return a.komponen.map((k) => ({ ...k }));
   let n = norm(nama);
   let mult = 1;
   const mm = n.match(/(\d+)\s*PCS/);

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rowsToInput } from "../lib/pcsan.ts";
+import { cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, saran } from "../lib/pcsan.ts";
 
 const master = JSON.parse(readFileSync(new URL("../data-awal/master.json", import.meta.url), "utf8"));
 const pcs = (H, nama) => H.baris.find((b) => b.nama === nama).pcs;
@@ -188,4 +188,57 @@ test("data GB lengkap (screenshot contoh pengguna): bundling dipecah -> 5.068 pc
   for (const [nama, n] of Object.entries(acuan)) assert.equal(pcs(H, nama), n, nama);
   assert.equal(H.total_pcs, 5068);
   assert.equal(H.total_nilai, 83_412_800);
+});
+
+test("rapikanTeksOcr: segitiga hijau Excel terbaca 'r' dibuang, huruf besar tunggal dipertahankan", () => {
+  const r = rapikanTeksOcr([
+    "GLOWBOOSTER SUNSCREEN 30 ML r 9",
+    "Serum GB Vitamin C + Collagen r 4",
+    "Serum GB Vitamin C + Collagen ' 4",
+    "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN 51 r",
+    "Serum Vitamin C 12",
+  ].join("\n"));
+  assert.deepEqual(rowsToInput(pasteToRows(r.teks)).out, [
+    { nama: "GLOWBOOSTER SUNSCREEN 30 ML", qty: 9 },
+    { nama: "Serum GB Vitamin C + Collagen", qty: 4 },
+    { nama: "Serum GB Vitamin C + Collagen", qty: 4 },
+    { nama: "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN", qty: 51 },
+    { nama: "Serum Vitamin C", qty: 12 },
+  ]);
+});
+
+test("cocokAwalan: nama diawali nama produk/mapping dikenali otomatis", () => {
+  assert.equal(cocokAwalan(master, "NEI Peeling Spray").dari, "NEI");
+  assert.equal(cocokAwalan(master, "nei   peeling spray 100ml").dari, "NEI");
+  assert.equal(cocokAwalan(master, "NEI Peeling Spray 100 ML").dari, "NEI");
+  assert.equal(cocokAwalan(master, "GLOWBOOSTER SUNSCREEN 30 ML NEW").dari, "GLOWBOOSTER SUNSCREEN 30 ML");
+  // nama terpanjang yang menang
+  assert.equal(cocokAwalan(master, "KYURA BRIGHTENING DARK SPOT CREAM 15G").dari, "KYURA BRIGHTENING DARK SPOT CREAM");
+  const r = resolve(master, "NEI Peeling Spray");
+  assert.equal(r.cara, "otomatis");
+  assert.deepEqual(r.komponen, [{ produk: "NEI", qty: 1 }]);
+  assert.deepEqual(saran(master, "NEI Peeling Spray"), [{ produk: "NEI", qty: 1 }]);
+});
+
+test("cocokAwalan: TIDAK menebak bila sisa nama berisi produk/jumlah lain", () => {
+  for (const n of [
+    "Serum GB Niacinamide 10% + RETINOL",
+    "KYURA ACNE CREAM 2 PCS",
+    "NEI FREE POUCH",
+    "NEI BONUS SERUM",
+    "NEI & GLOSSMEN",
+    "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN + RETINOL",
+    "KYURA ACNE CREAM X2",
+    "GLOWBOOSTER SUNSCREEN 30 ML 4", // angka lepas (sisa OCR / jumlah) -> jangan ditebak
+    "NEI 2",
+    "NEIXX",            // bukan awalan kata utuh
+    "NEI",              // persis sama ditangani resolve biasa, bukan awalan
+  ]) assert.equal(cocokAwalan(master, n), null, n);
+});
+
+test("hitung: nama otomatis ikut dihitung, bukan 'belum dikenal'", () => {
+  const H = hitung(master, [{ nama: "NEI Peeling Spray", qty: 5 }, { nama: "NEI FREE POUCH", qty: 2 }], null);
+  assert.equal(pcs(H, "NEI"), 5);
+  assert.deepEqual(H.unknown, [{ nama: "NEI FREE POUCH", qty: 2 }]);
+  assert.equal(H.total_nilai, 5 * 15600);
 });

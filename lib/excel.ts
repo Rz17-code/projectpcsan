@@ -54,7 +54,9 @@ export function downloadXlsx(H: Hasil, master: Master, user: string) {
   const inp: unknown[][] = [["Nama", "qty", "STATUS"]];
   for (const x of H.input) {
     const rs = resolve(master, x.nama);
-    inp.push([x.nama, x.qty, rs ? (rs.cara === "mapping" ? "mapping" : "nama produk") : "BELUM DIKENAL - tidak dihitung"]);
+    const status = !rs ? "BELUM DIKENAL - tidak dihitung"
+      : rs.cara === "mapping" ? "mapping" : rs.cara === "otomatis" ? `otomatis (awalan: ${rs.dari})` : "nama produk";
+    inp.push([x.nama, x.qty, status]);
   }
   inp.push(["Total (terbaca)", H.total_input, ""]);
   if (H.total_file != null) inp.push(["Total Keseluruhan di file", H.total_file, H.total_file === H.total_input ? "COCOK" : "TIDAK COCOK"]);

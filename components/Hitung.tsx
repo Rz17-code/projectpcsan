@@ -1,6 +1,6 @@
 "use client";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { fmt, hitung, pasteToRows, rapikanTeksOcr, resolve, rowsToInput } from "@/lib/pcsan";
+import { fmt, hitung, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, type Komponen } from "@/lib/pcsan";
 import { downloadXlsx, readWorkbook, sheetRows, type Workbook } from "@/lib/excel";
 import { simpanRiwayat } from "@/lib/api";
 import { bacaScreenshot } from "@/lib/ocr";
@@ -112,6 +112,16 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
   }
 
   const tanpaHarga = H ? H.baris.filter((b) => b.pcs > 0 && b.harga == null) : [];
+  const otomatis = H
+    ? [...new Set(H.input.map((r) => r.nama))]
+        .map((nama) => ({ nama, res: resolve(master, nama)! }))
+        .filter((x) => x.res?.cara === "otomatis")
+    : [];
+  async function konfirmasi(nama: string, komponen: Komponen[]) {
+    if (await ctx.simpanMaster({ ...master, mapping: [...master.mapping, { nama, komponen: komponen.map((k) => ({ ...k })) }] })) {
+      ctx.toast(`"${nama}" disimpan sebagai mapping`);
+    }
+  }
   let grup: string | null = null;
 
   return (
@@ -210,6 +220,21 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
                 ))}
               </div>
             )}
+            {otomatis.length > 0 && (
+              <div className="msg warn" data-testid="otomatis">
+                ⚠ <b>{otomatis.length} nama dikenali otomatis</b> dari awal namanya dan <b>sudah dihitung</b> — cek, lalu Konfirmasi supaya jadi mapping tetap:
+                {otomatis.map(({ nama, res }) => (
+                  <div key={nama} style={{ marginTop: 4 }}>
+                    <b>{nama}</b> → {res.komponen.map((k) => `${k.produk} × ${fmt(k.qty)}`).join(" + ")}{" "}
+                    <button className="btn s" onClick={() => konfirmasi(nama, res.komponen)}>Konfirmasi</button>{" "}
+                    <button className="btn s" onClick={() => ctx.bukaMapping(null, nama)}>Ubah</button>
+                  </div>
+                ))}
+                {data.sumber.startsWith("screenshot") && (
+                  <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>Kalau namanya salah baca OCR, betulkan di kotak teks saja (jangan dikonfirmasi).</div>
+                )}
+              </div>
+            )}
             {H.badKomp.length > 0 && <div className="msg bad">✖ Mapping menunjuk produk yang tidak ada di Master Harga: {H.badKomp.join(" · ")}</div>}
             {tanpaHarga.length > 0 && (
               <div className="msg warn">⚠ Produk ada qty tapi <b>harga kosong</b> (nilai dihitung 0): {tanpaHarga.map((b) => `${b.nama} (${fmt(b.pcs)} pcs)`).join(", ")}</div>
@@ -289,7 +314,9 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
                         <td>
                           {!res ? (
                             <><span className="tag bad">belum dikenal</span> <button className="btn s" onClick={() => ctx.bukaMapping(null, r.nama)}>Petakan</button></>
-                          ) : res.cara === "mapping" ? <span className="tag map">mapping</span> : <span className="tag ok">nama produk</span>}
+                          ) : res.cara === "mapping" ? <span className="tag map">mapping</span>
+                            : res.cara === "otomatis" ? <span className="tag auto" title={"dikenali dari awalan: " + res.dari}>otomatis</span>
+                            : <span className="tag ok">nama produk</span>}
                         </td>
                         <td>{res?.komponen.map((k, j) => <div key={j}>{k.produk} × {fmt(k.qty)} = <b>{fmt(r.qty * k.qty)}</b></div>)}</td>
                       </tr>
