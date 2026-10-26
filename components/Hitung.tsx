@@ -21,12 +21,32 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
   const [shot, setShot] = useState<{ url: string; nama: string; tanpaAngka: string[]; ragu: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // input baru hanya boleh bila nama dipilih & keterangan diisi; selama ada data, input berikutnya lewat "Input baru"
+  const adaData = data.input.length > 0;
+  const kurang = [!ctx.user && "pilih Nama Anda (kanan atas)", !data.judul.trim() && "isi Keterangan"].filter(Boolean) as string[];
+  const bolehInput = !adaData && kurang.length === 0;
+  function cekBolehInput() {
+    if (adaData) { alert("Klik \"+ Input baru\" dulu untuk memasukkan data berikutnya."); return false; }
+    if (kurang.length) { alert("Sebelum input: " + kurang.join(" dan ") + "."); return false; }
+    return true;
+  }
+  function inputBaru() {
+    if (shot) URL.revokeObjectURL(shot.url);
+    setShot(null);
+    setWb(null);
+    setPaste("");
+    setPasteOpen(false);
+    setOpen({});
+    setData({ input: [], totalFile: null, sumber: "", judul: "" });
+  }
+
   // Ctrl+V gambar (mis. dari Win+Shift+S) di halaman ini langsung dibaca sebagai screenshot
   useEffect(() => {
     const f = (e: ClipboardEvent) => {
       const img = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"));
       if (!img) return;
       e.preventDefault();
+      if (!cekBolehInput()) return;
       onScreenshot(img, "tempel " + new Date().toLocaleTimeString("id-ID"));
     };
     document.addEventListener("paste", f);
@@ -49,7 +69,8 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
 
   useEffect(() => setStatus(""), [data.sesi]);
   useEffect(() => {
-    if (!H || !data.otomatis || !data.sesi) return;
+    // tanpa nama / keterangan tidak disimpan (mis. keterangan dikosongkan setelah input)
+    if (!H || !data.otomatis || !data.sesi || !ctx.user || !data.judul.trim()) return;
     const sesi = data.sesi;
     const payload = { ...H, judul: data.judul || `Tanpa keterangan (${data.sumber})`, oleh: ctx.user };
     const s = JSON.stringify(payload);
@@ -69,18 +90,14 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     return () => clearTimeout(t);
   }, [H, ctx.user, ulang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * lanjut = koreksi dari input yang sama (mis. Hitung ulang screenshot) -> perbarui entri Riwayat yang sama.
-   * Keterangan yang diketik sebelum ada data tetap dipakai; input baru setelah itu mulai dari judulAwal (mis. nama file).
-   */
-  function pakai(rows: unknown[][], sumber: string, judulAwal = "", lanjut = false) {
+  /** lanjut = koreksi dari input yang sama (Hitung ulang, ganti sheet) -> perbarui entri Riwayat yang sama. */
+  function pakai(rows: unknown[][], sumber: string, lanjut = false) {
     const r = rowsToInput(rows);
     if (!r.out.length) { alert("Tidak ada data terbaca. Pastikan ada kolom Nama dan qty."); return; }
     setOpen({});
     const tetap = lanjut && data.otomatis && data.sesi;
-    const judul = tetap || !data.input.length ? data.judul || judulAwal : judulAwal;
     setData({
-      input: r.out, totalFile: r.total, sumber, judul, otomatis: true,
+      input: r.out, totalFile: r.total, sumber, judul: data.judul, otomatis: true,
       sesi: tetap ? data.sesi : sesiBaru(), riwayatId: tetap ? data.riwayatId : null,
     });
   }
@@ -103,13 +120,13 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     }
   }
   async function onFile(f: File | undefined) {
-    if (!f) return;
+    if (!f || !cekBolehInput()) return;
     if (f.type.startsWith("image/")) return onScreenshot(f, f.name);
     if (shot) { URL.revokeObjectURL(shot.url); setShot(null); }
     const w = await readWorkbook(f);
     setWb({ wb: w, file: f.name });
     setSheet(w.SheetNames[0]);
-    pakai(sheetRows(w, w.SheetNames[0]), `${f.name} | ${w.SheetNames[0]}`, f.name.replace(/\.[^.]+$/, ""));
+    pakai(sheetRows(w, w.SheetNames[0]), `${f.name} | ${w.SheetNames[0]}`);
   }
 
   const tanpaHarga = H ? H.baris.filter((b) => b.pcs > 0 && b.harga == null) : [];
@@ -129,17 +146,26 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     <section>
       <div className="card">
         <h2>1. Masukkan data (format: Nama | qty)</h2>
-        {!ctx.user && (
-          <div className="msg warn">Setiap input otomatis tersimpan di Riwayat. Isi <b>Nama Anda</b> di kanan atas supaya tercatat siapa yang menginput.</div>
-        )}
         <div className="row" style={{ marginBottom: 10 }}>
-          <input className="grow" type="text" placeholder="Keterangan, contoh: GB Shopee - Oktober 2026"
+          <input className={"grow" + (data.judul.trim() ? "" : " wajib")} type="text" data-testid="keterangan"
+            placeholder="Keterangan (wajib), contoh: CV ESTETIKA (16 OKTOBER)"
             value={data.judul} onChange={(e) => setData({ ...data, judul: e.target.value })} />
         </div>
+        {kurang.length > 0 && (
+          <div className="msg warn" data-testid="syarat">
+            {adaData ? "Belum tersimpan ke Riwayat: " : "Sebelum input data: "}<b>{kurang.join(" dan ")}</b>.
+          </div>
+        )}
+        {adaData ? (
+          <div className="row drop" style={{ cursor: "default", justifyContent: "center" }}>
+            <span>Data <b>{data.judul || "(tanpa keterangan)"}</b> sedang dibuka. Untuk data berikutnya:</span>
+            <button className="btn p" data-testid="input-baru" onClick={inputBaru}>＋ Input baru</button>
+          </div>
+        ) : (
         <div
-          className={"drop" + (hover ? " hover" : "")}
-          onClick={() => fileRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setHover(true); }}
+          className={"drop" + (hover ? " hover" : "") + (bolehInput ? "" : " off")}
+          onClick={() => cekBolehInput() && fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setHover(bolehInput); }}
           onDragLeave={() => setHover(false)}
           onDrop={(e) => { e.preventDefault(); setHover(false); onFile(e.dataTransfer.files[0]); }}
         >
@@ -157,10 +183,11 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
           <input ref={fileRef} data-testid="file" type="file" accept=".xlsx,.xls,.xlsm,.csv,image/*" className="hide"
             onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
+        )}
         {wb && wb.wb.SheetNames.length > 1 && (
           <div className="row" style={{ marginTop: 8 }}>
             <span className="muted">Sheet:</span>
-            <select value={sheet} onChange={(e) => { setSheet(e.target.value); pakai(sheetRows(wb.wb, e.target.value), `${wb.file} | ${e.target.value}`, wb.file.replace(/\.[^.]+$/, "")); }}>
+            <select value={sheet} onChange={(e) => { setSheet(e.target.value); pakai(sheetRows(wb.wb, e.target.value), `${wb.file} | ${e.target.value}`, true); }}>
               {wb.wb.SheetNames.map((n) => <option key={n}>{n}</option>)}
             </select>
           </div>
@@ -194,8 +221,9 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
             </div>
           )}
           <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn p" onClick={() => { setWb(null); pakai(pasteToRows(paste), shot ? `screenshot | ${shot.nama} (dikoreksi)` : "paste", undefined, !!shot); }}>
-              {shot ? "Hitung ulang" : "Hitung dari paste"}
+            <button className="btn p" disabled={!adaData && !bolehInput}
+              onClick={() => { setWb(null); pakai(pasteToRows(paste), shot ? `screenshot | ${shot.nama} (dikoreksi)` : "paste", adaData); }}>
+              {adaData ? "Hitung ulang" : "Hitung dari paste"}
             </button>
             <button className="btn" onClick={() => { setPaste(""); if (shot) URL.revokeObjectURL(shot.url); setShot(null); }}>Kosongkan</button>
           </div>

@@ -44,3 +44,8 @@ export async function simpanRiwayat(id: string | null, data: unknown): Promise<s
 export async function deleteRiwayat(id: string) {
   await fetch("/api/riwayat/" + id, { method: "DELETE" });
 }
+export async function getRiwayatBanyak(ids: string[]) {
+  const r = await fetch("/api/riwayat/lengkap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+  if (!r.ok) throw new Error("Gagal mengambil data riwayat");
+  return r.json();
+}

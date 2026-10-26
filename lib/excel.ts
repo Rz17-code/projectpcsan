@@ -1,6 +1,6 @@
 // Baca & tulis Excel di browser (SheetJS).
 import * as XLSX from "xlsx";
-import type { Hasil, Master } from "./pcsan";
+import type { Hasil, Master, Rekap } from "./pcsan";
 import { resolve } from "./pcsan";
 
 export type Workbook = XLSX.WorkBook;
@@ -67,4 +67,58 @@ export function downloadXlsx(H: Hasil, master: Master, user: string) {
 
   const fn = ("PCSAN " + (H.judul || new Date().toISOString().slice(0, 10))).replace(/[\\/:*?"<>|]/g, "-") + ".xlsx";
   XLSX.writeFile(wb, fn);
+}
+
+/** Export rekap beberapa entri Riwayat ke satu file Excel. */
+export function downloadRekapXlsx(R: Rekap, keterangan: string, user: string) {
+  const wb = XLSX.utils.book_new();
+  const sheet = (rows: unknown[][], cols: number[], numCols: number[], startRow: number, nama: string) => {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    numFmt(ws, numCols, startRow);
+    ws["!cols"] = cols.map((wch) => ({ wch }));
+    XLSX.utils.book_append_sheet(wb, ws, nama);
+  };
+
+  // 1. rekap per produk
+  const a: unknown[][] = [
+    ["REKAP PCSAN"],
+    ["Isi", keterangan],
+    ["Jumlah entri", R.entri.length],
+    ["Dibuat", new Date().toLocaleString("id-ID") + (user ? " oleh " + user : "")],
+    [],
+    ["NAMA PRODUK", "TOTAL PCS", "TOTAL NILAI (INC PPN)"],
+  ];
+  let g: string | null = null;
+  for (const p of R.produk) {
+    if (p.grup !== g) { g = p.grup; a.push([g || ""]); }
+    a.push([p.nama, p.pcs, p.nilai]);
+  }
+  a.push(["TOTAL", R.total_pcs, R.total_nilai]);
+  sheet(a, [42, 12, 22], [1, 2], 6, "REKAP PER PRODUK");
+
+  // 2 & 3. matriks produk × keterangan (pcs, lalu nilai)
+  const judul = R.entri.map((e) => e.judul || e.id);
+  for (const [nama, f] of [["PCS PER KETERANGAN", "pcs"], ["NILAI PER KETERANGAN", "nilai"]] as const) {
+    const m: unknown[][] = [["NAMA PRODUK", ...judul, "TOTAL"]];
+    for (const p of R.produk) m.push([p.nama, ...R.entri.map((e) => p.per[e.id]?.[f] ?? 0), p[f]]);
+    m.push(["TOTAL", ...R.entri.map((e) => R.produk.reduce((s, p) => s + (p.per[e.id]?.[f] ?? 0), 0)), f === "pcs" ? R.total_pcs : R.total_nilai]);
+    sheet(m, [42, ...judul.map((j) => Math.min(30, Math.max(12, j.length + 2))), 14], judul.map((_, i) => i + 1).concat(judul.length + 1), 1, nama);
+  }
+
+  // 4. daftar entri
+  const d: unknown[][] = [["KETERANGAN", "DIBUAT", "OLEH", "TOTAL PCS", "TOTAL NILAI"]];
+  for (const e of R.entri) d.push([e.judul, e.dibuat, e.oleh || "", e.total_pcs, e.total_nilai]);
+  sheet(d, [40, 20, 16, 12, 18], [3, 4], 1, "DAFTAR ENTRI");
+
+  // 5. detail format panjang (siap dibuat pivot)
+  const t: unknown[][] = [["KETERANGAN", "DIBUAT", "OLEH", "GRUP", "NAMA PRODUK", "PCS", "NILAI"]];
+  for (const e of R.entri) {
+    for (const p of R.produk) {
+      const x = p.per[e.id];
+      if (x) t.push([e.judul, e.dibuat, e.oleh || "", p.grup, p.nama, x.pcs, x.nilai]);
+    }
+  }
+  sheet(t, [40, 20, 16, 24, 40, 10, 16], [5, 6], 1, "DETAIL");
+
+  XLSX.writeFile(wb, `REKAP PCSAN ${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

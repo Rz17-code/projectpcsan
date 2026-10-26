@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InputRow, Master } from "@/lib/pcsan";
+import { norm, type InputRow, type Master } from "@/lib/pcsan";
 import { fetchMaster, postMaster } from "@/lib/api";
+import { NAMA_TIM } from "@/lib/tim";
 import Hitung from "./Hitung";
 import MasterHarga from "./MasterHarga";
 import MappingTab from "./MappingTab";
@@ -46,7 +47,11 @@ export default function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    try { setUser(localStorage.getItem("pcsan_user") || ""); } catch {}
+    // nama tersimpan dicocokkan ke daftar tim (mis. "ARYO" lama -> "Aryo"); di luar daftar = harus pilih ulang
+    try {
+      const s = norm(localStorage.getItem("pcsan_user"));
+      setUser(NAMA_TIM.find((n) => norm(n) === s) || "");
+    } catch {}
     fetchMaster().then(setMaster).catch((e) => setErr(e.message || "Tidak bisa terhubung ke server PCSAN."));
   }, []);
 
@@ -85,10 +90,13 @@ export default function App() {
         </div>
         <div className="user">
           Nama Anda:{" "}
-          <input
-            type="text" placeholder="isi nama" value={user}
+          <select
+            value={user} data-testid="nama" className={user ? "" : "wajib"}
             onChange={(e) => { setUser(e.target.value); try { localStorage.setItem("pcsan_user", e.target.value); } catch {} }}
-          />
+          >
+            <option value="">-- pilih nama --</option>
+            {NAMA_TIM.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
         </div>
       </header>
       <nav>

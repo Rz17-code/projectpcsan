@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { angkaOcr, cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, saran, selaraskanDenganTotal } from "../lib/pcsan.ts";
+import { angkaOcr, cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rekapRiwayat, rowsToInput, saran, selaraskanDenganTotal } from "../lib/pcsan.ts";
 
 const master = JSON.parse(readFileSync(new URL("../data-awal/master.json", import.meta.url), "utf8"));
 const pcs = (H, nama) => H.baris.find((b) => b.nama === nama).pcs;
@@ -266,4 +266,21 @@ test("selaraskanDenganTotal: pilih bacaan yang jumlahnya cocok dengan Total (kas
   assert.equal(selaraskanDenganTotal([[7], [11, 17]], [100]), null);
   // semua sepakat & cocok
   assert.deepEqual(selaraskanDenganTotal([[1], [2]], [3]), { qty: [1, 2], total: 3 });
+});
+
+test("rekapRiwayat: gabungkan beberapa entri per produk + rincian per entri", () => {
+  const e = (id, judul, input) => ({ ...hitung(master, input, null), id, judul, dibuat: "2026-10-26 10:00:00", oleh: "Tes" });
+  const R = rekapRiwayat([
+    e("a", "CV A", [{ nama: "PDRN", qty: 7 }, { nama: "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN", qty: 10 }]),
+    e("b", "PT B", [{ nama: "PDRN", qty: 3 }, { nama: "REMOLE", qty: 2 }]),
+  ]);
+  const p = (n) => R.produk.find((x) => x.nama === n);
+  assert.equal(p("Serum GB PDRN").pcs, 10);
+  assert.deepEqual(p("Serum GB PDRN").per, { a: { pcs: 7, nilai: 7 * 16650 }, b: { pcs: 3, nilai: 3 * 16650 } });
+  assert.equal(p("Serum GB Niacinamide 10%").pcs, 10);
+  assert.equal(p("REMOLE").nilai, 0); // tanpa harga tetap ikut, nilai 0
+  assert.equal(R.produk.length, 4);   // hanya produk yang ada pcs-nya
+  assert.equal(R.total_pcs, 10 + 10 + 10 + 2);
+  assert.equal(R.total_nilai, 10 * 16650 + 10 * 15100 + 10 * 16200);
+  assert.deepEqual(R.entri.map((x) => x.judul), ["CV A", "PT B"]);
 });

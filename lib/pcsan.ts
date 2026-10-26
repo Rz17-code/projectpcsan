@@ -266,3 +266,40 @@ export function saran(master: Master, nama: string): Komponen[] {
 
 export const fmt = (n: number | null | undefined) =>
   n == null || (n as any) === "" ? "" : Number(n).toLocaleString("id-ID");
+
+// --- rekap beberapa entri Riwayat sekaligus (memakai hasil persis seperti saat disimpan)
+export type EntriRiwayat = Pick<Hasil, "baris" | "total_pcs" | "total_nilai"> & { id: string; judul: string; dibuat: string; oleh: string };
+export type RekapProduk = { nama: string; grup: string; pcs: number; nilai: number; per: Record<string, { pcs: number; nilai: number }> };
+export type Rekap = {
+  entri: { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number }[];
+  produk: RekapProduk[];
+  total_pcs: number;
+  total_nilai: number;
+};
+
+/** Gabungkan hasil beberapa entri Riwayat: total pcs & nilai per produk, plus rinciannya per entri. Produk tanpa pcs dilewati. */
+export function rekapRiwayat(list: EntriRiwayat[]): Rekap {
+  const per = new Map<string, RekapProduk>();
+  for (const e of list) {
+    for (const b of e.baris || []) {
+      if (!b.pcs) continue;
+      const k = norm(b.nama);
+      if (!per.has(k)) per.set(k, { nama: b.nama, grup: b.grup || "", pcs: 0, nilai: 0, per: {} });
+      const p = per.get(k)!;
+      p.pcs += b.pcs;
+      p.nilai += b.nilai || 0;
+      const x = (p.per[e.id] ||= { pcs: 0, nilai: 0 });
+      x.pcs += b.pcs;
+      x.nilai += b.nilai || 0;
+    }
+  }
+  // kelompokkan per grup (urutan grup = urutan pertama muncul), urutan produk dalam grup tetap
+  const urutGrup = [...new Set([...per.values()].map((p) => p.grup))];
+  const produk = [...per.values()].sort((a, b) => urutGrup.indexOf(a.grup) - urutGrup.indexOf(b.grup));
+  return {
+    entri: list.map((e) => ({ id: e.id, judul: e.judul, dibuat: e.dibuat, oleh: e.oleh, total_pcs: e.total_pcs, total_nilai: e.total_nilai })),
+    produk,
+    total_pcs: produk.reduce((a, p) => a + p.pcs, 0),
+    total_nilai: produk.reduce((a, p) => a + p.nilai, 0),
+  };
+}

@@ -17,6 +17,8 @@ export interface Storage {
   saveMaster(versiLama: number, data: Pick<Master, "produk" | "mapping">, oleh: string): Promise<{ ok: true; master: Master } | { ok: false; master: Master }>;
   listRiwayat(): Promise<RiwayatRingkas[]>;
   getRiwayat(id: string): Promise<any | null>;
+  /** Ambil isi lengkap beberapa riwayat sekaligus (untuk rekap). Yang tidak ditemukan dilewati. */
+  getRiwayatBanyak(ids: string[]): Promise<any[]>;
   addRiwayat(data: any): Promise<string>;
   /** Perbarui riwayat yang sudah ada (tanggal dibuat dipertahankan). false = tidak ditemukan. */
   updateRiwayat(id: string, data: any): Promise<boolean>;
@@ -26,11 +28,9 @@ export interface Storage {
 const ringkasan = (d: any): RiwayatRingkas =>
   ({ id: d.id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai });
 
-const now = () => {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-};
+// Selalu jam WIB, apa pun zona waktu servernya (server Vercel memakai UTC, jadi jam bisa mundur 7 jam).
+// Locale "sv-SE" menghasilkan format "YYYY-MM-DD HH:MM:SS".
+const now = () => new Date().toLocaleString("sv-SE", { timeZone: "Asia/Jakarta", hour12: false });
 
 // ------------------------------------------------------------------ adapter: file lokal (folder ./data)
 class FileStorage implements Storage {
@@ -93,6 +93,9 @@ class FileStorage implements Storage {
     const id = now().replace(/[-: ]/g, "") + "_" + crypto.randomBytes(3).toString("hex");
     await fs.writeFile(path.join(this.riwayatDir, id + ".json"), JSON.stringify({ ...data, id, dibuat: now() }), "utf8");
     return id;
+  }
+  async getRiwayatBanyak(ids: string[]) {
+    return (await Promise.all(ids.map((id) => this.getRiwayat(id)))).filter(Boolean);
   }
   async updateRiwayat(id: string, data: any) {
     const lama = await this.getRiwayat(id);
@@ -161,6 +164,11 @@ class RedisStorage implements Storage {
     const id = now().replace(/[-: ]/g, "") + "_" + crypto.randomBytes(3).toString("hex");
     await this.tulisRiwayat({ ...data, id, dibuat: now() });
     return id;
+  }
+  async getRiwayatBanyak(ids: string[]) {
+    if (!ids.length) return [];
+    const isi = await this.r.mget<(string | null)[]>(...ids.map(K.riwayat));
+    return isi.flatMap((s) => (s ? [JSON.parse(s)] : []));
   }
   async updateRiwayat(id: string, data: any) {
     const lama = await this.getRiwayat(id);
