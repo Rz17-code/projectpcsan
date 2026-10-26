@@ -24,8 +24,12 @@ Salicylic 8, Vit C + Collagen 155, Retinol 27, Sunscreen 30gr 350, Sunscreen 60g
 
 ## Struktur kode
 - `lib/pcsan.ts` — logika inti murni (parsing, resolve mapping, hitung, saran mapping). Ubah aturan hitung di sini saja.
-- `lib/storage.ts` — SATU-SATUNYA tempat akses data. Adapter `file` (folder `./data`, untuk localhost).
-  Untuk Vercel: tambahkan adapter database (rencana: Supabase) dipilih via env `PCSAN_STORAGE`; mode `file` sengaja error di Vercel.
+- `lib/storage.ts` — SATU-SATUNYA tempat akses data. Adapter `file` (folder `./data`, untuk localhost) dan `redis`
+  (Upstash, untuk Vercel — pilihan pengguna, bukan Supabase). Redis dipakai otomatis bila `KV_REST_API_URL`/`KV_REST_API_TOKEN`
+  (atau `UPSTASH_REDIS_REST_*`) ada; mode `file` sengaja error di Vercel. Simpan master = skrip Lua atomik (cek versi + backup + set).
+  Klien Upstash memakai auto-pipelining; `automaticDeserialization: false`, JSON diurus sendiri.
+- `middleware.ts` + `lib/auth.ts` + `app/login` + `app/api/login` — password bersama via env `PCSAN_PASSWORD`
+  (kosong = tanpa login). Cookie = SHA-256 dari password.
 - `lib/excel.ts` — baca/tulis Excel di browser (SheetJS 0.18.5). `lib/api.ts` — fetch ke API.
 - `lib/ocr.ts` — input dari screenshot (Tesseract.js, pilihan pengguna: gratis, bukan Claude API). Gambar diperbesar ke ±1600px + abu-abu
   sebelum OCR (tanpa ini banyak salah baca). Pembersihan teks OCR → Nama|qty ada di `rapikanTeksOcr` (`lib/pcsan.ts`, dites).

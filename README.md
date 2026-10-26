@@ -68,10 +68,19 @@ git push -u origin main
 Folder `data/`, `node_modules/`, dan `.next/` tidak ikut ter-upload karena sudah ada di `.gitignore`.
 
 **Deploy ke Vercel**
-- Di Vercel, file di server **tidak permanen**, sehingga mode `file` tidak bisa dipakai di sana. Aplikasi akan menampilkan pesan jelas kalau ini terjadi.
-- Yang perlu ditambahkan cukup **satu adapter database** di `lib/storage.ts`, misalnya Supabase atau Vercel Postgres, lalu set environment variable `PCSAN_STORAGE` di Vercel.
-- Halaman, API, dan logika hitung **tidak perlu diubah**.
-- Isi `data/master.json` dari localhost bisa diimpor ke database supaya master dan mapping yang sudah dibuat tidak hilang.
+
+Di Vercel, file di server **tidak permanen**, jadi data disimpan di database **Upstash Redis** (gratis).
+
+1. Buka project di Vercel → tab **Storage** → **Create Database** / **Connect** → pilih **Upstash for Redis** (Marketplace) → hubungkan ke project ini.
+   Kunci koneksi (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) otomatis masuk ke Environment Variables.
+2. **Settings → Environment Variables** → tambah `PCSAN_PASSWORD` = password bersama tim (pakai yang panjang, jangan yang mudah ditebak).
+3. **Deployments** → titik tiga di deploy terbaru → **Redeploy** (environment variable baru hanya terbaca setelah deploy ulang).
+
+Catatan:
+- Saat pertama dibuka, master harga & mapping diisi dari `data-awal/master.json`. Master/riwayat yang dibuat di localhost **tidak** otomatis ikut.
+- Backup master (100 versi terakhir) disimpan di Redis pada kunci `pcsan:master:backup`.
+- Mengganti `PCSAN_PASSWORD` (lalu Redeploy) otomatis mengeluarkan semua orang yang sudah login.
+- Di localhost, `PCSAN_PASSWORD` biasanya kosong = tanpa password, dan data tetap di folder `data/`.
 
 ---
 

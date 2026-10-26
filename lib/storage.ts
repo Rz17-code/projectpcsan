@@ -5,7 +5,9 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { Redis } from "@upstash/redis";
 import type { Master } from "./pcsan";
+import seed from "@/data-awal/master.json";
 
 export type RiwayatRingkas = { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number };
 
@@ -93,19 +95,89 @@ class FileStorage implements Storage {
   }
 }
 
+// ------------------------------------------------------------------ adapter: Upstash Redis (untuk Vercel)
+// Kunci koneksi diisi otomatis oleh integrasi "Upstash for Redis" di Vercel (KV_REST_API_* atau UPSTASH_REDIS_REST_*).
+const redisUrl = () => process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = () => process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+const K = {
+  master: "pcsan:master",
+  versi: "pcsan:master:versi",
+  backup: "pcsan:master:backup", // list, terbaru di depan, maks 100
+  ringkas: "pcsan:riwayat", // hash id -> ringkasan (untuk daftar)
+  riwayat: (id: string) => "pcsan:riwayat:" + id,
+};
+
+// Cek versi + backup + simpan dalam satu langkah atomik, supaya dua orang yang menyimpan bersamaan tidak saling menimpa.
+const LUA_SIMPAN = `
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+local lama = redis.call('GET', KEYS[2])
+if lama then redis.call('LPUSH', KEYS[3], lama); redis.call('LTRIM', KEYS[3], 0, 99) end
+redis.call('SET', KEYS[2], ARGV[3])
+redis.call('SET', KEYS[1], ARGV[2])
+return 1`;
+
+class RedisStorage implements Storage {
+  // automaticDeserialization: false -> semua nilai string mentah, JSON diurus sendiri
+  r = new Redis({ url: redisUrl()!, token: redisToken()!, automaticDeserialization: false });
+
+  async getMaster() {
+    const s = await this.r.get<string>(K.master);
+    if (s) return JSON.parse(s) as Master;
+    // pertama kali: isi dari master awal (NX = tidak menimpa bila ada yang sudah mengisi duluan)
+    const awal = seed as unknown as Master;
+    await this.r.set(K.master, JSON.stringify(awal), { nx: true });
+    await this.r.set(K.versi, String(awal.versi), { nx: true });
+    return JSON.parse((await this.r.get<string>(K.master))!) as Master;
+  }
+  async saveMaster(versiLama: number, data: Pick<Master, "produk" | "mapping">, oleh: string) {
+    const cur = await this.getMaster();
+    const master: Master = { versi: (cur.versi || 0) + 1, produk: data.produk, mapping: data.mapping, diubah: now(), oleh };
+    const ok = await this.r.eval<string[], number>(LUA_SIMPAN, [K.versi, K.master, K.backup], [String(versiLama), String(master.versi), JSON.stringify(master)]);
+    return Number(ok) === 1 ? { ok: true as const, master } : { ok: false as const, master: await this.getMaster() };
+  }
+  async listRiwayat() {
+    const h = (await this.r.hgetall<Record<string, string>>(K.ringkas)) || {};
+    const out: RiwayatRingkas[] = [];
+    for (const v of Object.values(h)) { try { out.push(JSON.parse(v)); } catch { /* abaikan data rusak */ } }
+    return out.sort((a, b) => (b.dibuat || "").localeCompare(a.dibuat || ""));
+  }
+  async getRiwayat(id: string) {
+    const s = await this.r.get<string>(K.riwayat(id));
+    return s ? JSON.parse(s) : null;
+  }
+  async addRiwayat(data: any) {
+    const id = now().replace(/[-: ]/g, "") + "_" + crypto.randomBytes(3).toString("hex");
+    const d = { ...data, id, dibuat: now() };
+    const ringkas: RiwayatRingkas = { id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai };
+    await this.r.set(K.riwayat(id), JSON.stringify(d));
+    await this.r.hset(K.ringkas, { [id]: JSON.stringify(ringkas) });
+    return id;
+  }
+  async deleteRiwayat(id: string) {
+    await this.r.hdel(K.ringkas, id);
+    await this.r.del(K.riwayat(id));
+  }
+}
+
 // ------------------------------------------------------------------ pemilih adapter
 let instance: Storage | null = null;
 export function getStorage(): Storage {
   if (instance) return instance;
-  const mode = process.env.PCSAN_STORAGE || "file";
+  const adaRedis = !!(redisUrl() && redisToken());
+  // di Vercel, Redis yang sudah terhubung otomatis dipakai walau PCSAN_STORAGE masih "file"
+  const mode = (process.env.VERCEL && adaRedis ? "" : process.env.PCSAN_STORAGE) || (adaRedis ? "redis" : "file");
+  if (mode === "redis") {
+    if (!adaRedis) throw new Error("PCSAN_STORAGE='redis' tapi kunci Upstash Redis (KV_REST_API_URL / KV_REST_API_TOKEN) belum ada.");
+    instance = new RedisStorage();
+    return instance;
+  }
   if (mode === "file") {
     if (process.env.VERCEL) {
-      throw new Error("Mode penyimpanan 'file' tidak bisa dipakai di Vercel (folder tidak permanen). Hubungkan database dulu — lihat README bagian 'Deploy ke Vercel'.");
+      throw new Error("Database belum terhubung. Di Vercel buka project → Storage → hubungkan Upstash for Redis, lalu Redeploy (lihat README bagian 'Deploy ke Vercel').");
     }
     instance = new FileStorage();
     return instance;
   }
-  // Tempat adapter database cloud nanti, contoh:
-  // if (mode === "supabase") { instance = new SupabaseStorage(); return instance; }
   throw new Error(`PCSAN_STORAGE='${mode}' belum didukung.`);
 }
