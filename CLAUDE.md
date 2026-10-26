@@ -27,6 +27,9 @@ Salicylic 8, Vit C + Collagen 155, Retinol 27, Sunscreen 30gr 350, Sunscreen 60g
 - `lib/storage.ts` — SATU-SATUNYA tempat akses data. Adapter `file` (folder `./data`, untuk localhost).
   Untuk Vercel: tambahkan adapter database (rencana: Supabase) dipilih via env `PCSAN_STORAGE`; mode `file` sengaja error di Vercel.
 - `lib/excel.ts` — baca/tulis Excel di browser (SheetJS 0.18.5). `lib/api.ts` — fetch ke API.
+- `lib/ocr.ts` — input dari screenshot (Tesseract.js, pilihan pengguna: gratis, bukan Claude API). Gambar diperbesar ke ±1600px + abu-abu
+  sebelum OCR (tanpa ini banyak salah baca). Pembersihan teks OCR → Nama|qty ada di `rapikanTeksOcr` (`lib/pcsan.ts`, dites).
+  Hasil OCR selalu ditampilkan untuk dicek; jangan pernah "membetulkan" nama hasil OCR secara otomatis.
 - `app/api/master` (GET/POST dengan cek `versi` → 409 jika konflik), `app/api/riwayat`, `app/api/riwayat/[id]`.
 - `components/` — App (tab), Hitung, MasterHarga, MappingTab, MappingModal, Riwayat.
 - `data-awal/master.json` — seed master (49 produk dari file harga pengguna + 12 mapping). Hanya dipakai jika `data/master.json` belum ada.

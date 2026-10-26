@@ -1,8 +1,9 @@
 "use client";
-import { Fragment, useMemo, useRef, useState } from "react";
-import { fmt, hitung, pasteToRows, resolve, rowsToInput } from "@/lib/pcsan";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { fmt, hitung, pasteToRows, rapikanTeksOcr, resolve, rowsToInput } from "@/lib/pcsan";
 import { downloadXlsx, readWorkbook, sheetRows, type Workbook } from "@/lib/excel";
 import { addRiwayat } from "@/lib/api";
+import { bacaScreenshot } from "@/lib/ocr";
 import type { Ctx, DataInput } from "./App";
 
 export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInput; setData: (d: DataInput) => void }) {
@@ -13,7 +14,22 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
   const [hover, setHover] = useState(false);
   const [hideZero, setHideZero] = useState(true);
   const [open, setOpen] = useState<Record<number, boolean>>({});
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [ocr, setOcr] = useState<number | null>(null); // progres baca screenshot 0..1, null = tidak sedang membaca
+  const [shot, setShot] = useState<{ url: string; nama: string; tanpaAngka: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Ctrl+V gambar (mis. dari Win+Shift+S) di halaman ini langsung dibaca sebagai screenshot
+  useEffect(() => {
+    const f = (e: ClipboardEvent) => {
+      const img = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"));
+      if (!img) return;
+      e.preventDefault();
+      onScreenshot(img, "tempel " + new Date().toLocaleTimeString("id-ID"));
+    };
+    document.addEventListener("paste", f);
+    return () => document.removeEventListener("paste", f);
+  });
 
   // hasil selalu dihitung ulang otomatis bila master / mapping berubah
   const H = useMemo(
@@ -27,8 +43,27 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     setOpen({});
     setData({ input: r.out, totalFile: r.total, sumber, judul: judul ?? data.judul });
   }
+  async function onScreenshot(f: Blob, nama: string) {
+    if (ocr != null) return;
+    setOcr(0);
+    try {
+      const r = rapikanTeksOcr(await bacaScreenshot(f, setOcr));
+      if (shot) URL.revokeObjectURL(shot.url);
+      setShot({ url: URL.createObjectURL(f), nama, tanpaAngka: r.tanpaAngka });
+      setPaste(r.teks);
+      setPasteOpen(true);
+      setWb(null);
+      pakai(pasteToRows(r.teks), `screenshot | ${nama}`);
+    } catch (e: any) {
+      alert("Gagal membaca screenshot: " + (e?.message || e) + "\nCek koneksi internet (mesin OCR diunduh saat pertama kali dipakai).");
+    } finally {
+      setOcr(null);
+    }
+  }
   async function onFile(f: File | undefined) {
     if (!f) return;
+    if (f.type.startsWith("image/")) return onScreenshot(f, f.name);
+    if (shot) { URL.revokeObjectURL(shot.url); setShot(null); }
     const w = await readWorkbook(f);
     setWb({ wb: w, file: f.name });
     setSheet(w.SheetNames[0]);
@@ -64,9 +99,18 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
           onDragLeave={() => setHover(false)}
           onDrop={(e) => { e.preventDefault(); setHover(false); onFile(e.dataTransfer.files[0]); }}
         >
-          <b>Klik atau seret file Excel ke sini</b><br />
-          <span style={{ fontSize: 12 }}>Kolom <b>Nama</b> dan <b>qty</b>, baris <b>Total Keseluruhan</b> otomatis dipakai untuk cek</span>
-          <input ref={fileRef} data-testid="file" type="file" accept=".xlsx,.xls,.xlsm,.csv" className="hide"
+          {ocr != null ? (
+            <b>Membaca screenshot... {Math.round(ocr * 100)}%</b>
+          ) : (
+            <>
+              <b>Klik atau seret file Excel / screenshot ke sini</b><br />
+              <span style={{ fontSize: 12 }}>
+                atau tekan <b>Ctrl+V</b> untuk menempel screenshot. Kolom <b>Nama</b> dan <b>qty</b>, baris <b>Total Keseluruhan</b> otomatis dipakai untuk cek
+                (sertakan juga di screenshot).
+              </span>
+            </>
+          )}
+          <input ref={fileRef} data-testid="file" type="file" accept=".xlsx,.xls,.xlsm,.csv,image/*" className="hide"
             onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
         {wb && wb.wb.SheetNames.length > 1 && (
@@ -77,14 +121,33 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
             </select>
           </div>
         )}
-        <details style={{ marginTop: 12 }}>
-          <summary style={{ cursor: "pointer", color: "var(--brand)" }}>atau copy-paste dari Excel</summary>
-          <p className="muted" style={{ margin: "6px 0" }}>Blok kolom Nama dan qty di Excel → Ctrl+C → tempel di bawah → klik Hitung.</p>
-          <textarea data-testid="paste" value={paste} onChange={(e) => setPaste(e.target.value)}
-            placeholder={"BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN\t1.821\nGLOWBOOSTER SUNSCREEN 30 ML\t350\n..."} />
+        <details style={{ marginTop: 12 }} open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
+          <summary style={{ cursor: "pointer", color: "var(--brand)" }}>{shot ? "hasil baca screenshot (cek & betulkan di sini)" : "atau copy-paste dari Excel"}</summary>
+          <p className="muted" style={{ margin: "6px 0" }}>
+            {shot
+              ? "Cocokkan teks dengan gambar. Kalau ada nama/angka yang salah baca, betulkan di kotak teks (jangan dipetakan), lalu klik Hitung ulang."
+              : "Blok kolom Nama dan qty di Excel → Ctrl+C → tempel di bawah → klik Hitung."}
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: shot ? "repeat(auto-fit,minmax(280px,1fr))" : "1fr", gap: 10 }}>
+            {shot && (
+              <div className="scroll" style={{ maxHeight: 420 }}>
+                <img src={shot.url} alt={"screenshot " + shot.nama} style={{ width: "100%", display: "block" }} />
+              </div>
+            )}
+            <textarea data-testid="paste" value={paste} onChange={(e) => setPaste(e.target.value)} style={shot ? { minHeight: 420 } : undefined}
+              placeholder={"BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN\t1.821\nGLOWBOOSTER SUNSCREEN 30 ML\t350\n..."} />
+          </div>
+          {shot && shot.tanpaAngka.length > 0 && (
+            <div className="msg warn" style={{ marginTop: 8 }}>
+              ⚠ {shot.tanpaAngka.length} baris tidak ada angka qty-nya sehingga <b>tidak dihitung</b>. Kalau itu nama barang, tambahkan qty-nya:{" "}
+              {shot.tanpaAngka.slice(0, 8).join(" · ")}{shot.tanpaAngka.length > 8 ? " · ..." : ""}
+            </div>
+          )}
           <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn p" onClick={() => { setWb(null); pakai(pasteToRows(paste), "paste"); }}>Hitung dari paste</button>
-            <button className="btn" onClick={() => setPaste("")}>Kosongkan</button>
+            <button className="btn p" onClick={() => { setWb(null); pakai(pasteToRows(paste), shot ? `screenshot | ${shot.nama} (dikoreksi)` : "paste"); }}>
+              {shot ? "Hitung ulang" : "Hitung dari paste"}
+            </button>
+            <button className="btn" onClick={() => { setPaste(""); if (shot) URL.revokeObjectURL(shot.url); setShot(null); }}>Kosongkan</button>
           </div>
         </details>
       </div>
@@ -92,6 +155,12 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
       {H && (
         <>
           <div data-testid="pesan">
+            {data.sumber.startsWith("screenshot") && (
+              <div className="msg warn">
+                📷 Data dibaca dari <b>screenshot (OCR)</b> — cocokkan nama &amp; qty dengan gambar di bagian 1 sebelum dipakai.
+                {H.total_file == null && <> Screenshot <b>tidak memuat baris Total Keseluruhan</b>, jadi tidak ada cek otomatis — sebaiknya ikutkan baris total.</>}
+              </div>
+            )}
             {H.total_file != null && (H.total_file === H.total_input ? (
               <div className="msg ok">✔ Qty terbaca ({fmt(H.total_input)}) cocok dengan <b>Total Keseluruhan</b> di file ({fmt(H.total_file)}).</div>
             ) : (

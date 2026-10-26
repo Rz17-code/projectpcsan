@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { hitung, parseHarga, parseQty, pasteToRows, resolve, rowsToInput } from "../lib/pcsan.ts";
+import { hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rowsToInput } from "../lib/pcsan.ts";
 
 const master = JSON.parse(readFileSync(new URL("../data-awal/master.json", import.meta.url), "utf8"));
 const pcs = (H, nama) => H.baris.find((b) => b.nama === nama).pcs;
@@ -121,6 +121,71 @@ test("angka acuan GB di CLAUDE.md: 5.068 pcs, Rp 83.412.800 (cek harga master)",
     "Serum GB Retinol 1%": 27, "GB Sunscreen 30gr": 350, "GB Sunscreen 60gr": 193, "Serum GB PDRN": 28,
   };
   const H = hitung(master, Object.entries(acuan).map(([nama, qty]) => ({ nama, qty })), null);
+  assert.equal(H.total_pcs, 5068);
+  assert.equal(H.total_nilai, 83_412_800);
+});
+
+test("rapikanTeksOcr: teks hasil OCR screenshot pivot -> Nama|qty", () => {
+  const ocr = [
+    "Label Baris | Jumlah dari qty",
+    "| BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN | 1.821 |",
+    "GLOWBOOSTER SUNSCREEN 30 ML   35O",   // O dibaca sebagai huruf
+    "PDRN  2l",                            // 1 dibaca sebagai l
+    "KYURA ACNE KIT",                      // qty tidak terbaca
+    "Total Keseluruhan 2.176",
+  ].join("\n");
+  const r = rapikanTeksOcr(ocr);
+  assert.deepEqual(r.tanpaAngka, ["Label Baris | Jumlah dari qty", "KYURA ACNE KIT"]);
+  const inp = rowsToInput(pasteToRows(r.teks));
+  assert.deepEqual(inp.out, [
+    { nama: "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN", qty: 1821 },
+    { nama: "GLOWBOOSTER SUNSCREEN 30 ML", qty: 350 },
+    { nama: "PDRN", qty: 21 },
+  ]);
+  assert.equal(inp.total, 2176);
+});
+
+test("rapikanTeksOcr: angka di dalam nama tidak dianggap qty", () => {
+  const r = rapikanTeksOcr("BUNDLING SERUM GLOW BOOSTER 2 PCS 25\nSerum GB Retinol 1% 27\nGB Sunscreen 60gr 193");
+  assert.deepEqual(rowsToInput(pasteToRows(r.teks)).out, [
+    { nama: "BUNDLING SERUM GLOW BOOSTER 2 PCS", qty: 25 },
+    { nama: "Serum GB Retinol 1%", qty: 27 },
+    { nama: "GB Sunscreen 60gr", qty: 193 },
+  ]);
+});
+
+test("data GB lengkap (screenshot contoh pengguna): bundling dipecah -> 5.068 pcs, Rp 83.412.800", () => {
+  const teks = [
+    "Nama\tqty",
+    "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN\t1.821",
+    "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN + Vit C Collagen\t99",
+    "BUNDLING SERUM GB RETINOL + VIT C COLLAGEN\t19",
+    "BUNDLING SERUM GLOW BOOSTER 2 PCS\t25",
+    "BUNDLING SERUM GLOW BOOSTER 3 PCS\t4",
+    "GLOWBOOSTER SUNSCREEN 30 ML\t350",
+    "GLOWBOOSTER SUNSCREEN 60 ML\t193",
+    "NIACINAMIDE 10% + PDRN\t21",
+    "PDRN\t7",
+    "Serum GB AHA BHA PHA\t6",
+    "Serum GB Alpha Arbutin 2%\t176",
+    "Serum GB Niacinamide 10%\t138",
+    "Serum GB Retinol 1%\t8",
+    "Serum GB Salicylic Acid 2%\t8",
+    "Serum GB Vitamin C + Collagen\t37",
+    "Serum Glow Booster\t64",
+    "Total Keseluruhan\t2.976",
+  ].join("\n");
+  const r = rowsToInput(pasteToRows(teks));
+  const H = hitung(master, r.out, r.total);
+  assert.equal(H.total_input, 2976);
+  assert.equal(H.total_file, 2976);
+  assert.deepEqual(H.unknown, []);
+  const acuan = {
+    "Serum GB 7 Active Ingredients": 126, "Serum GB AHA BHA PHA": 6, "Serum GB Alpha Arbutin 2%": 2096,
+    "Serum GB Niacinamide 10%": 2079, "Serum GB Salicylic Acid 2%": 8, "Serum GB Vitamin C + Collagen": 155,
+    "Serum GB Retinol 1%": 27, "GB Sunscreen 30gr": 350, "GB Sunscreen 60gr": 193, "Serum GB PDRN": 28,
+  };
+  for (const [nama, n] of Object.entries(acuan)) assert.equal(pcs(H, nama), n, nama);
   assert.equal(H.total_pcs, 5068);
   assert.equal(H.total_nilai, 83_412_800);
 });

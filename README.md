@@ -30,6 +30,7 @@ Bundling dipecah otomatis sesuai Mapping Bundling.
 
 | Menu | Fungsi |
 |---|---|
+| **Screenshot** | Tekan **Ctrl+V** (setelah Win+Shift+S) atau seret gambar ke kotak upload. Teks dibaca otomatis (OCR, butuh internet saat pertama dipakai) dan ditampilkan di samping gambarnya. Cocokkan, betulkan yang salah baca di kotak teks, lalu **Hitung ulang**. Ikutkan baris **Total Keseluruhan** di screenshot supaya salah baca ketahuan. |
 | **Hitung PCSAN** | Upload Excel atau copy-paste kolom **Nama + qty**. Baris **Total Keseluruhan** dipakai untuk mengecek tidak ada baris yang terlewat. Klik baris produk untuk melihat asal qty-nya. |
 | Nama merah | Nama barang yang belum dikenal **tidak dihitung**. Klik **Petakan**, periksa saran komponen, lalu Simpan. Setelah itu nama tersebut otomatis dikenali. |
 | **Download Excel** | Berisi 3 sheet: HASIL PCSAN, RINCIAN BUNDLING, INPUT. |

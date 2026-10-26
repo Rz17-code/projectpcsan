@@ -91,6 +91,32 @@ export function pasteToRows(text: string): unknown[][] {
   });
 }
 
+/** Angka hasil OCR yang tertukar dengan huruf mirip: O/o→0, l/I→1 (hanya di token terakhir yang memang berisi angka). */
+const OCR_ANGKA: Record<string, string> = { O: "0", o: "0", l: "1", I: "1" };
+
+/**
+ * Teks hasil OCR screenshot -> teks "Nama<TAB>qty" per baris (siap untuk pasteToRows).
+ * Baris yang tidak berakhiran angka tetap ditulis apa adanya (tidak dihitung) dan dilaporkan di `tanpaAngka`
+ * supaya pengguna bisa mengecek apakah ada baris yang salah baca.
+ */
+export function rapikanTeksOcr(text: string): { teks: string; tanpaAngka: string[] } {
+  const keluar: string[] = [];
+  const tanpaAngka: string[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.replace(/[|‖¦]+\s*$/, "").replace(/^\s*[|‖¦]+/, "").replace(/\s+/g, " ").trim();
+    if (!l) continue;
+    const m = l.match(/^(.*?)[\s|:;_—–]+([0-9OolI.,]*\d[0-9OolI.,]*)$/);
+    if (m && /[A-Za-z]/.test(m[1])) {
+      const qty = m[2].replace(/[OolI]/g, (c) => OCR_ANGKA[c]);
+      keluar.push(`${m[1].replace(/[\s.:_—–-]+$/, "")}\t${qty}`);
+    } else {
+      keluar.push(l);
+      if (/[A-Za-z]{3}/.test(l)) tanpaAngka.push(l);
+    }
+  }
+  return { teks: keluar.join("\n"), tanpaAngka };
+}
+
 export function resolve(master: Master, nama: string): Resolusi {
   const k = norm(nama);
   const m = master.mapping.find((x) => norm(x.nama) === k);
