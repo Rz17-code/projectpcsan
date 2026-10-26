@@ -18,7 +18,7 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const [pasteOpen, setPasteOpen] = useState(false);
   const [ocr, setOcr] = useState<number | null>(null); // progres baca screenshot 0..1, null = tidak sedang membaca
-  const [shot, setShot] = useState<{ url: string; nama: string; tanpaAngka: string[] } | null>(null);
+  const [shot, setShot] = useState<{ url: string; nama: string; tanpaAngka: string[]; ragu: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Ctrl+V gambar (mis. dari Win+Shift+S) di halaman ini langsung dibaca sebagai screenshot
@@ -88,9 +88,10 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     if (ocr != null) return;
     setOcr(0);
     try {
-      const r = rapikanTeksOcr(await bacaScreenshot(f, setOcr));
+      const o = await bacaScreenshot(f, setOcr);
+      const r = rapikanTeksOcr(o.teks);
       if (shot) URL.revokeObjectURL(shot.url);
-      setShot({ url: URL.createObjectURL(f), nama, tanpaAngka: r.tanpaAngka });
+      setShot({ url: URL.createObjectURL(f), nama, tanpaAngka: r.tanpaAngka, ragu: o.ragu });
       setPaste(r.teks);
       setPasteOpen(true);
       setWb(null);
@@ -180,6 +181,12 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
             <textarea data-testid="paste" value={paste} onChange={(e) => setPaste(e.target.value)} style={shot ? { minHeight: 420 } : undefined}
               placeholder={"BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN\t1.821\nGLOWBOOSTER SUNSCREEN 30 ML\t350\n..."} />
           </div>
+          {shot && shot.ragu.length > 0 && (
+            <div className="msg bad" style={{ marginTop: 8 }} data-testid="ragu">
+              ✖ <b>Angka ragu</b> — dibaca berbeda di dua kali baca dan tidak bisa dipastikan lewat Total. Cocokkan dengan gambar:
+              {shot.ragu.map((x) => <div key={x}>• {x}</div>)}
+            </div>
+          )}
           {shot && shot.tanpaAngka.length > 0 && (
             <div className="msg warn" style={{ marginTop: 8 }}>
               ⚠ {shot.tanpaAngka.length} baris tidak ada angka qty-nya sehingga <b>tidak dihitung</b>. Kalau itu nama barang, tambahkan qty-nya:{" "}

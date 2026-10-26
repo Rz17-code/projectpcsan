@@ -105,6 +105,34 @@ const buangSampahOcr = (s: string) => {
 /** Angka hasil OCR yang tertukar dengan huruf mirip: O/o→0, l/I→1 (hanya di token terakhir yang memang berisi angka). */
 const OCR_ANGKA: Record<string, string> = { O: "0", o: "0", l: "1", I: "1" };
 
+/** Token angka hasil OCR -> angka (O/o→0, l/I→1). null bila tidak ada digit / tidak terbaca. */
+export function angkaOcr(s: string): number | null {
+  const t = s.trim();
+  if (!/\d/.test(t) || !/^[0-9OolI.,]+$/.test(t)) return null;
+  return parseQty(t.replace(/[OolI]/g, (c) => OCR_ANGKA[c]));
+}
+
+/**
+ * Qty tiap baris dibaca dua kali oleh OCR (bacaan utama & bacaan khusus angka). Bila ada yang berbeda, pilih kombinasi
+ * yang jumlahnya sama dengan baris Total. kandidat[i] = 1 atau 2 nilai untuk baris i (indeks 1 = bacaan khusus angka,
+ * diutamakan bila beberapa kombinasi sama-sama cocok); total = kandidat nilai baris Total.
+ * Hasil: qty terpilih per baris + total, atau null bila tidak ada kombinasi yang cocok.
+ */
+export function selaraskanDenganTotal(kandidat: number[][], total: number[]): { qty: number[]; total: number } | null {
+  const ragu = kandidat.flatMap((k, i) => (k.length > 1 ? [i] : []));
+  if (ragu.length > 12) return null;
+  const tetap = kandidat.reduce((a, k) => a + (k.length > 1 ? 0 : k[0]), 0);
+  let best: { mask: number; total: number; skor: number } | null = null;
+  for (let mask = 0; mask < 1 << ragu.length; mask++) {
+    let s = tetap, skor = 0;
+    ragu.forEach((i, b) => { const p = (mask >> b) & 1; s += kandidat[i][p]; skor += p; });
+    for (const t of total) if (s === t && (!best || skor > best.skor)) best = { mask, total: t, skor };
+  }
+  if (!best) return null;
+  const { mask } = best;
+  return { qty: kandidat.map((k, i) => (k.length > 1 ? k[(mask >> ragu.indexOf(i)) & 1] : k[0])), total: best.total };
+}
+
 /**
  * Teks hasil OCR screenshot -> teks "Nama<TAB>qty" per baris (siap untuk pasteToRows).
  * Baris yang tidak berakhiran angka tetap ditulis apa adanya (tidak dihitung) dan dilaporkan di `tanpaAngka`
@@ -114,7 +142,8 @@ export function rapikanTeksOcr(text: string): { teks: string; tanpaAngka: string
   const keluar: string[] = [];
   const tanpaAngka: string[] = [];
   for (const raw of text.split(/\r?\n/)) {
-    const l = buangSampahOcr(raw.replace(/[|‖¦]+\s*$/, "").replace(/^\s*[|‖¦]+/, "").replace(/\s+/g, " ").trim());
+    // simbol nyasar di awal baris (garis tabel, "[", "‘") dibuang; nama barang selalu diawali huruf/angka
+    const l = buangSampahOcr(raw.replace(/[|‖¦]+\s*$/, "").replace(/^[^\p{L}\p{N}]+/u, "").replace(/\s+/g, " ").trim());
     if (!l) continue;
     const m = l.match(/^(.*?)[\s|:;_—–]+([0-9OolI.,]*\d[0-9OolI.,]*)$/);
     if (m && /[A-Za-z]/.test(m[1])) {

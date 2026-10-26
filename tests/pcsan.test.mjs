@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, saran } from "../lib/pcsan.ts";
+import { angkaOcr, cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, saran, selaraskanDenganTotal } from "../lib/pcsan.ts";
 
 const master = JSON.parse(readFileSync(new URL("../data-awal/master.json", import.meta.url), "utf8"));
 const pcs = (H, nama) => H.baris.find((b) => b.nama === nama).pcs;
@@ -197,6 +197,8 @@ test("rapikanTeksOcr: segitiga hijau Excel terbaca 'r' dibuang, huruf besar tung
     "Serum GB Vitamin C + Collagen ' 4",
     "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN 51 r",
     "Serum Vitamin C 12",
+    "[BUNDLING SERUM GLOW BOOSTER 2 PCS 1",
+    "‘Serum GB Salicylic Acid 2% 3",
   ].join("\n"));
   assert.deepEqual(rowsToInput(pasteToRows(r.teks)).out, [
     { nama: "GLOWBOOSTER SUNSCREEN 30 ML", qty: 9 },
@@ -204,6 +206,8 @@ test("rapikanTeksOcr: segitiga hijau Excel terbaca 'r' dibuang, huruf besar tung
     { nama: "Serum GB Vitamin C + Collagen", qty: 4 },
     { nama: "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN", qty: 51 },
     { nama: "Serum Vitamin C", qty: 12 },
+    { nama: "BUNDLING SERUM GLOW BOOSTER 2 PCS", qty: 1 },
+    { nama: "Serum GB Salicylic Acid 2%", qty: 3 },
   ]);
 });
 
@@ -241,4 +245,25 @@ test("hitung: nama otomatis ikut dihitung, bukan 'belum dikenal'", () => {
   assert.equal(pcs(H, "NEI"), 5);
   assert.deepEqual(H.unknown, [{ nama: "NEI FREE POUCH", qty: 2 }]);
   assert.equal(H.total_nilai, 5 * 15600);
+});
+
+test("angkaOcr: token angka OCR", () => {
+  assert.equal(angkaOcr("1.198"), 1198);
+  assert.equal(angkaOcr("4l"), 41);
+  assert.equal(angkaOcr("1O"), 10);
+  assert.equal(angkaOcr("ML"), null);
+  assert.equal(angkaOcr("2%"), null);
+});
+
+test("selaraskanDenganTotal: pilih bacaan yang jumlahnya cocok dengan Total (kasus 41 terbaca 11)", () => {
+  // 7 + 816 + 41 = 864; bacaan utama salah 41 -> 11, bacaan khusus angka benar 41
+  assert.deepEqual(selaraskanDenganTotal([[7], [816], [11, 41]], [864]), { qty: [7, 816, 41], total: 864 });
+  // kebalikannya: bacaan khusus angka yang salah
+  assert.deepEqual(selaraskanDenganTotal([[7], [816], [41, 11]], [864]), { qty: [7, 816, 41], total: 864 });
+  // baris Total sendiri yang salah baca
+  assert.deepEqual(selaraskanDenganTotal([[7], [816], [41]], [834, 864]), { qty: [7, 816, 41], total: 864 });
+  // tidak ada kombinasi yang cocok -> null (dilaporkan sebagai angka ragu)
+  assert.equal(selaraskanDenganTotal([[7], [11, 17]], [100]), null);
+  // semua sepakat & cocok
+  assert.deepEqual(selaraskanDenganTotal([[1], [2]], [3]), { qty: [1, 2], total: 3 });
 });

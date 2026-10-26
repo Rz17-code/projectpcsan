@@ -37,6 +37,10 @@ Salicylic 8, Vit C + Collagen 155, Retinol 27, Sunscreen 30gr 350, Sunscreen 60g
 - `lib/ocr.ts` — input dari screenshot (Tesseract.js, pilihan pengguna: gratis, bukan Claude API). Gambar diperbesar ke ±1600px + abu-abu
   sebelum OCR (tanpa ini banyak salah baca). Pembersihan teks OCR → Nama|qty ada di `rapikanTeksOcr` (`lib/pcsan.ts`, dites).
   Hasil OCR selalu ditampilkan untuk dicek; jangan pernah "membetulkan" nama hasil OCR secara otomatis.
+  Qty dibaca 2×: bacaan utama (abu-abu luma) + baca ulang tiap sel qty dari gambar kedua (1,6× lebih besar, hitam-putih,
+  whitelist angka). Bila beda, `selaraskanDenganTotal` memilih kombinasi yang cocok dengan baris Total; jika tak ada → "Angka ragu".
+  Jangan ganti abu-abu utama ke kanal-tergelap (min RGB): nama lebih bagus tapi angka 4 sering terbaca 1 (diuji 2026-10-26).
+  Uji OCR pakai gambar asli (beberapa ukuran 0,6–1,5×) di browser, bukan hanya tes unit.
 - `app/api/master` (GET/POST dengan cek `versi` → 409 jika konflik), `app/api/riwayat`, `app/api/riwayat/[id]`.
 - `components/` — App (tab), Hitung, MasterHarga, MappingTab, MappingModal, Riwayat.
 - `data-awal/master.json` — seed master (49 produk dari file harga pengguna + 12 mapping). Hanya dipakai jika `data/master.json` belum ada.
