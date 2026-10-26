@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { angkaOcr, cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rekapRiwayat, rowsToInput, saran, selaraskanDenganTotal } from "../lib/pcsan.ts";
+import { angkaOcr, cariDobel, cocokAwalan, hitung, parseHarga, parseQty, pasteToRows, rapikanTeksOcr, resolve, rekapRiwayat, rowsToInput, saran, selaraskanDenganTotal, sidikInput } from "../lib/pcsan.ts";
 
 const master = JSON.parse(readFileSync(new URL("../data-awal/master.json", import.meta.url), "utf8"));
 const pcs = (H, nama) => H.baris.find((b) => b.nama === nama).pcs;
@@ -283,4 +283,19 @@ test("rekapRiwayat: gabungkan beberapa entri per produk + rincian per entri", ()
   assert.equal(R.total_pcs, 10 + 10 + 10 + 2);
   assert.equal(R.total_nilai, 10 * 16650 + 10 * 15100 + 10 * 16200);
   assert.deepEqual(R.entri.map((x) => x.judul), ["CV A", "PT B"]);
+});
+
+test("sidikInput & cariDobel: input dobel ketahuan walau urutan/huruf beda", () => {
+  const a = sidikInput([{ nama: "PDRN", qty: 28 }, { nama: "GLOWBOOSTER SUNSCREEN 30 ML", qty: 350 }]);
+  assert.equal(sidikInput([{ nama: "glowbooster  sunscreen 30 ml", qty: 350 }, { nama: "pdrn", qty: 28 }]), a);
+  assert.equal(sidikInput([{ nama: "PDRN", qty: 20 }, { nama: "PDRN", qty: 8 }, { nama: "GLOWBOOSTER SUNSCREEN 30 ML", qty: 350 }]), a);
+  assert.notEqual(sidikInput([{ nama: "PDRN", qty: 29 }, { nama: "GLOWBOOSTER SUNSCREEN 30 ML", qty: 350 }]), a);
+
+  const r = (id, sidik, total_pcs, total_nilai) => ({ id, judul: id, dibuat: "", oleh: "", total_pcs, total_nilai, sidik });
+  const list = [r("sendiri", a, 378, 1000), r("x", a, 378, 1000), r("lama", undefined, 378, 1000), r("lain", "beda", 5, 1000)];
+  const D = cariDobel({ sidik: a, total_pcs: 378, total_nilai: 1000 }, list, ["sendiri", null]);
+  assert.deepEqual(D.sama.map((x) => x.id), ["x"]);
+  assert.deepEqual(D.mirip.map((x) => x.id), ["lama"]);
+  // data kosong (0 pcs) tidak dianggap mirip
+  assert.equal(cariDobel({ sidik: "z", total_pcs: 0, total_nilai: 0 }, [r("n", "y", 0, 0)]).mirip.length, 0);
 });

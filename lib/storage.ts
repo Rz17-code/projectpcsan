@@ -6,10 +6,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { Redis } from "@upstash/redis";
-import type { Master } from "./pcsan";
+import { sidikInput, type Master } from "./pcsan";
 import seed from "@/data-awal/master.json";
 
-export type RiwayatRingkas = { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number };
+/** sidik = sidikInput(isi input), untuk cek input dobel. Riwayat Redis lama (sebelum fitur ini) belum punya sidik. */
+export type RiwayatRingkas = { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number; sidik?: string };
 
 export interface Storage {
   getMaster(): Promise<Master>;
@@ -26,7 +27,8 @@ export interface Storage {
 }
 
 const ringkasan = (d: any): RiwayatRingkas =>
-  ({ id: d.id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai });
+  ({ id: d.id, judul: d.judul, dibuat: d.dibuat, oleh: d.oleh, total_pcs: d.total_pcs, total_nilai: d.total_nilai,
+     sidik: Array.isArray(d.input) ? sidikInput(d.input) : undefined });
 
 // Selalu jam WIB, apa pun zona waktu servernya (server Vercel memakai UTC, jadi jam bisa mundur 7 jam).
 // Locale "sv-SE" menghasilkan format "YYYY-MM-DD HH:MM:SS".
@@ -154,6 +156,20 @@ class RedisStorage implements Storage {
     const h = (await this.r.hgetall<Record<string, string>>(K.ringkas)) || {};
     const out: RiwayatRingkas[] = [];
     for (const v of Object.values(h)) { try { out.push(JSON.parse(v)); } catch { /* abaikan data rusak */ } }
+    // riwayat lama belum punya sidik: hitung sekali dari isi lengkapnya lalu simpan ke ringkasan
+    const lama = out.filter((x) => !x.sidik);
+    if (lama.length) {
+      const isi = await this.getRiwayatBanyak(lama.map((x) => x.id));
+      const baru: Record<string, string> = {};
+      for (const d of isi) {
+        const r = ringkasan(d);
+        if (!r.sidik) continue;
+        baru[d.id] = JSON.stringify(r);
+        const x = out.find((o) => o.id === d.id);
+        if (x) x.sidik = r.sidik;
+      }
+      if (Object.keys(baru).length) await this.r.hset(K.ringkas, baru);
+    }
     return out.sort((a, b) => (b.dibuat || "").localeCompare(a.dibuat || ""));
   }
   async getRiwayat(id: string) {

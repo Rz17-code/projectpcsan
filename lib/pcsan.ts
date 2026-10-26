@@ -303,3 +303,35 @@ export function rekapRiwayat(list: EntriRiwayat[]): Rekap {
     total_nilai: produk.reduce((a, p) => a + p.nilai, 0),
   };
 }
+
+// --- cek input dobel (data yang sama diinput 2× membuat rekap dobel tanpa ketahuan)
+/** Sidik isi input: tidak terpengaruh urutan baris, huruf besar/kecil, spasi, atau nama yang sama dipecah 2 baris. */
+export function sidikInput(input: InputRow[]): string {
+  const per = new Map<string, number>();
+  for (const r of input || []) per.set(norm(r.nama), (per.get(norm(r.nama)) || 0) + (Number(r.qty) || 0));
+  const s = [...per].filter(([, q]) => q).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([n, q]) => n + "=" + q).join("\n");
+  // FNV-1a 32-bit, cukup untuk membedakan data; panjang dipakai sebagai pembeda tambahan
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(16).padStart(8, "0") + "-" + per.size;
+}
+
+export type RingkasDobel = { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number; sidik?: string };
+/**
+ * Cari riwayat lain yang kemungkinan data yang sama.
+ * sama  = isi Nama|qty persis sama (sidik sama).
+ * mirip = isi berbeda/tak diketahui (riwayat lama tanpa sidik, atau OCR beda baca) tapi total pcs DAN total nilai sama persis.
+ */
+export function cariDobel(
+  cur: { sidik: string; total_pcs: number; total_nilai: number },
+  list: RingkasDobel[],
+  kecuali: (string | null | undefined)[] = [],
+): { sama: RingkasDobel[]; mirip: RingkasDobel[] } {
+  const sama: RingkasDobel[] = [], mirip: RingkasDobel[] = [];
+  for (const x of list || []) {
+    if (kecuali.includes(x.id)) continue;
+    if (x.sidik && x.sidik === cur.sidik) sama.push(x);
+    else if (cur.total_pcs > 0 && x.total_pcs === cur.total_pcs && x.total_nilai === cur.total_nilai) mirip.push(x);
+  }
+  return { sama, mirip };
+}

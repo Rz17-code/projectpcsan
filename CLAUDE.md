@@ -41,6 +41,9 @@ Salicylic 8, Vit C + Collagen 155, Retinol 27, Sunscreen 30gr 350, Sunscreen 60g
   whitelist angka). Bila beda, `selaraskanDenganTotal` memilih kombinasi yang cocok dengan baris Total; jika tak ada → "Angka ragu".
   Jangan ganti abu-abu utama ke kanal-tergelap (min RGB): nama lebih bagus tapi angka 4 sering terbaca 1 (diuji 2026-10-26).
   Uji OCR pakai gambar asli (beberapa ukuran 0,6–1,5×) di browser, bukan hanya tes unit.
+- Cek input dobel: `sidikInput` (sidik isi Nama|qty, kebal urutan/huruf) disimpan di ringkasan riwayat (`ringkasan()` di storage;
+  Redis lama dilengkapi otomatis saat `listRiwayat`). `cariDobel`: sama = sidik sama (merah), mirip = total pcs & nilai sama (oranye).
+  Hanya PERINGATAN + tombol "Batalkan input ini" — jangan blokir simpan (data periode berbeda bisa saja kebetulan sama).
 - `app/api/master` (GET/POST dengan cek `versi` → 409 jika konflik), `app/api/riwayat`, `app/api/riwayat/[id]`.
 - `components/` — App (tab), Hitung, MasterHarga, MappingTab, MappingModal, Riwayat.
 - `data-awal/master.json` — seed master (49 produk dari file harga pengguna + 12 mapping). Hanya dipakai jika `data/master.json` belum ada.

@@ -1,8 +1,8 @@
 "use client";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { fmt, hitung, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, type Komponen } from "@/lib/pcsan";
+import { cariDobel, fmt, hitung, pasteToRows, rapikanTeksOcr, resolve, rowsToInput, sidikInput, type Komponen, type RingkasDobel } from "@/lib/pcsan";
 import { downloadXlsx, readWorkbook, sheetRows, type Workbook } from "@/lib/excel";
-import { simpanRiwayat } from "@/lib/api";
+import { deleteRiwayat, listRiwayat, simpanRiwayat } from "@/lib/api";
 import { bacaScreenshot } from "@/lib/ocr";
 import type { Ctx, DataInput } from "./App";
 
@@ -66,6 +66,7 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
   const antre = useRef<Promise<unknown>>(Promise.resolve());
   const idSesi = useRef<{ sesi: string; id: string } | null>(null);
   const terakhir = useRef("");
+  const batalSesi = useRef(""); // sesi yang dibatalkan: simpan otomatis yang masih antre tidak boleh menyimpannya lagi
 
   useEffect(() => setStatus(""), [data.sesi]);
   useEffect(() => {
@@ -77,7 +78,7 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     if (s === terakhir.current) return;
     const t = setTimeout(() => {
       antre.current = antre.current.then(async () => {
-        if (s === terakhir.current) return;
+        if (s === terakhir.current || batalSesi.current === sesi) return;
         setStatus("menyimpan");
         const id = await simpanRiwayat(data.riwayatId || (idSesi.current?.sesi === sesi ? idSesi.current.id : null), payload);
         if (!id) { setStatus("gagal"); return; }
@@ -89,6 +90,31 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
     }, 1500);
     return () => clearTimeout(t);
   }, [H, ctx.user, ulang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- cek input dobel: bandingkan dengan Riwayat lain (selain entri input ini sendiri)
+  const [daftar, setDaftar] = useState<RingkasDobel[]>([]);
+  useEffect(() => {
+    if (!data.input.length || !data.otomatis) { setDaftar([]); return; }
+    let batal = false;
+    listRiwayat().then((x) => { if (!batal && Array.isArray(x)) setDaftar(x); }).catch(() => {});
+    return () => { batal = true; };
+  }, [data.input, data.otomatis]);
+  const dobel = H && data.otomatis
+    ? cariDobel({ sidik: sidikInput(H.input), total_pcs: H.total_pcs, total_nilai: H.total_nilai }, daftar,
+        [data.riwayatId, idSesi.current?.sesi === data.sesi ? idSesi.current?.id : null])
+    : { sama: [], mirip: [] };
+  async function batalkanInput() {
+    if (!confirm("Batalkan input ini? Entrinya dihapus dari Riwayat supaya rekap tidak dobel.")) return;
+    batalSesi.current = data.sesi || "";
+    await antre.current; // tunggu simpan otomatis yang sedang berjalan, baru hapus
+    const id = data.riwayatId || (idSesi.current?.sesi === data.sesi ? idSesi.current.id : null);
+    if (id) await deleteRiwayat(id);
+    idSesi.current = null;
+    terakhir.current = "";
+    inputBaru();
+    ctx.toast("Input dibatalkan & dihapus dari Riwayat");
+  }
+  const sebut = (x: RingkasDobel) => <><b>{x.judul}</b> — {x.oleh || "(tanpa nama)"}, {x.dibuat}</>;
 
   /** lanjut = koreksi dari input yang sama (Hitung ulang, ganti sheet) -> perbarui entri Riwayat yang sama. */
   function pakai(rows: unknown[][], sumber: string, lanjut = false) {
@@ -233,6 +259,20 @@ export default function Hitung({ ctx, data, setData }: { ctx: Ctx; data: DataInp
       {H && (
         <>
           <div data-testid="pesan">
+            {(dobel.sama.length > 0 || dobel.mirip.length > 0) && (
+              <div className={"msg " + (dobel.sama.length ? "bad" : "warn")} data-testid="dobel">
+                {dobel.sama.length > 0 ? (
+                  <>✖ <b>Data ini sudah pernah diinput</b> (isi Nama &amp; qty sama persis) — kalau tetap disimpan, rekap jadi dobel:</>
+                ) : (
+                  <>⚠ <b>Mungkin data yang sama sudah diinput</b> (total pcs &amp; nilai sama persis, isinya sedikit beda) — cek dulu:</>
+                )}
+                {[...dobel.sama, ...dobel.mirip].slice(0, 5).map((x) => <div key={x.id}>• {sebut(x)}</div>)}
+                <div className="row" style={{ marginTop: 6 }}>
+                  <button className="btn s d" data-testid="batal-dobel" onClick={batalkanInput}>Batalkan input ini</button>
+                  <span className="muted" style={{ fontSize: 12 }}>Kalau memang data berbeda (mis. periode lain), abaikan pesan ini.</span>
+                </div>
+              </div>
+            )}
             {data.sumber.startsWith("screenshot") && (
               <div className="msg warn">
                 📷 Data dibaca dari <b>screenshot (OCR)</b> — cocokkan nama &amp; qty dengan gambar di bagian 1 sebelum dipakai.

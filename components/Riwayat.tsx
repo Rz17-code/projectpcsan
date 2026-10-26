@@ -6,7 +6,7 @@ import { downloadRekapXlsx, downloadXlsx } from "@/lib/excel";
 import { NAMA_TIM } from "@/lib/tim";
 import type { Ctx, DataInput } from "./App";
 
-type Item = { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number };
+type Item = { id: string; judul: string; dibuat: string; oleh: string; total_pcs: number; total_nilai: number; sidik?: string };
 
 export default function Riwayat({ ctx, onBuka }: { ctx: Ctx; onBuka: (d: DataInput) => void }) {
   const [items, setItems] = useState<Item[] | null>(null);
@@ -33,6 +33,10 @@ export default function Riwayat({ ctx, onBuka }: { ctx: Ctx; onBuka: (d: DataInp
     (!bulan || (x.dibuat || "").startsWith(bulan)) &&
     (!dari || (x.dibuat || "") >= dari) &&
     (!sampai || (x.dibuat || "").slice(0, 10) <= sampai));
+  // entri dengan isi Nama|qty sama persis dengan entri lain (dari seluruh riwayat, bukan hanya yang tampil)
+  const jumlahSidik = new Map<string, number>();
+  for (const x of items || []) if (x.sidik) jumlahSidik.set(x.sidik, (jumlahSidik.get(x.sidik) || 0) + 1);
+  const dobel = (x: Item) => !!x.sidik && (jumlahSidik.get(x.sidik) || 0) > 1;
   const dipilih = tampil.filter((x) => pilih.has(x.id));
   // tanpa centang = semua yang tampil
   const sasaran = dipilih.length ? dipilih : tampil;
@@ -127,7 +131,7 @@ export default function Riwayat({ ctx, onBuka }: { ctx: Ctx; onBuka: (d: DataInp
               {tampil.map((x) => (
                 <tr key={x.id}>
                   <td><input type="checkbox" checked={pilih.has(x.id)} onChange={() => centang(x.id)} /></td>
-                  <td>{x.judul}</td><td>{x.dibuat}</td><td>{x.oleh || <span className="muted">(tanpa nama)</span>}</td>
+                  <td>{x.judul}{dobel(x) && <> <span className="tag bad" title="Isi Nama & qty sama persis dengan entri lain — cek supaya rekap tidak dobel">dobel?</span></>}</td><td>{x.dibuat}</td><td>{x.oleh || <span className="muted">(tanpa nama)</span>}</td>
                   <td className="n">{fmt(x.total_pcs)}</td><td className="n">{fmt(x.total_nilai)}</td>
                   <td className="n">
                     <button className="btn s" onClick={async () => {
