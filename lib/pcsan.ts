@@ -246,8 +246,13 @@ export function saran(master: Master, nama: string): Komponen[] {
   const mm = n.match(/(\d+)\s*PCS/);
   if (mm) { mult = +mm[1]; n = n.replace(mm[0], " "); }
   const res: Komponen[] = [];
+  let konteks: string[] = []; // kata pembeda bagian sebelumnya tanpa kata terakhir, mis. "DARK SPOT CREAM" -> "DARK SPOT"
   for (const part of n.split("+").map((s) => s.trim()).filter(Boolean)) {
-    const pt = toks(part).filter((t) => !STOP.has(t));
+    const semua = toks(part);
+    let pt = semua.filter((t) => !STOP.has(t));
+    // "... DARK SPOT CREAM + SERUM": bagian tanpa kata pembeda memakai konteks bagian sebelumnya
+    if (!pt.length) pt = konteks;
+    else konteks = pt.slice(0, -1);
     let best: Produk | null = null, bs = 0;
     for (const p of master.produk) {
       const tt = new Set(toks(p.nama));
@@ -256,7 +261,10 @@ export function saran(master: Master, nama: string): Komponen[] {
         if (tt.has(x)) s += 2;
         else if ([...tt].some((y) => y.startsWith(x) || x.startsWith(y))) s += 1;
       });
-      if (norm(p.nama) === norm(part)) s += 100;
+      if (!s && norm(p.nama) !== norm(part)) continue;
+      // kata umum (SERUM, GB, ...) tidak menentukan produk, tapi memutus skor seri: "DARK SPOT SERUM" -> Serum, bukan Cream
+      s = s * 10 + semua.filter((x) => STOP.has(x) && tt.has(x)).length;
+      if (norm(p.nama) === norm(part)) s += 1000;
       if (s > bs) { bs = s; best = p; }
     }
     if (best && !res.some((r) => r.produk === best!.nama)) res.push({ produk: best.nama, qty: mult });

@@ -299,3 +299,22 @@ test("sidikInput & cariDobel: input dobel ketahuan walau urutan/huruf beda", () 
   // data kosong (0 pcs) tidak dianggap mirip
   assert.equal(cariDobel({ sidik: "z", total_pcs: 0, total_nilai: 0 }, [r("n", "y", 0, 0)]).mirip.length, 0);
 });
+
+test("saran: SERUM vs CREAM pada nama yang sama tidak tertukar (kasus Dark Spot Serum terpetakan ke Cream)", () => {
+  assert.deepEqual(saran(master, "BUNDLING KY BRIGHTENING DARK SPOT SERUM 2 PCS"), [{ produk: "KYURA BRIGHTENING DARK SPOT SERUM", qty: 2 }]);
+  assert.deepEqual(saran(master, "BUNDLING KY BRIGHTENING DARK SPOT CREAM 3 PCS"), [{ produk: "KYURA BRIGHTENING DARK SPOT CREAM", qty: 3 }]);
+  assert.deepEqual(saran(master, "KYURA ACNE SERUM 2 PCS"), [{ produk: "KYURA ACNE SERUM", qty: 2 }]);
+});
+
+test("saran: bagian setelah '+' yang hanya berisi jenis produk memakai konteks bagian sebelumnya", () => {
+  assert.deepEqual(saran(master, "BUNDLING BRIGHTENING DARK SPOT CREAM + SERUM"), [
+    { produk: "KYURA BRIGHTENING DARK SPOT CREAM", qty: 1 },
+    { produk: "KYURA BRIGHTENING DARK SPOT SERUM", qty: 1 },
+  ]);
+  assert.deepEqual(saran(master, "BUNDLING BARRIER SERUM + BARRIER CREAM"), [
+    { produk: "KYURA BARRIER SERUM", qty: 1 },
+    { produk: "KYURA BARRIER CREAM", qty: 1 },
+  ]);
+  // perilaku lama tetap: bundling GB dipecah sesuai nama bahannya
+  assert.deepEqual(saran(master, "BUNDLING SERUM GB NIACINAMIDE + ALPHA ARBUTIN").map((k) => k.produk), ["Serum GB Niacinamide 10%", "Serum GB Alpha Arbutin 2%"]);
+});
